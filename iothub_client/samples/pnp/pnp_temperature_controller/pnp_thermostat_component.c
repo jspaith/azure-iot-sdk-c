@@ -20,8 +20,24 @@
 // Size of buffer to store ISO 8601 time.
 #define TIME_BUFFER_SIZE 128
 
+// Size of buffer to store current temperature telemetry.
+#define CURRENT_TEMPERATURE_BUFFER_SIZE  32
+
+// Size of buffer to store the maximum temp since reboot property.
+#define MAX_TEMPERATURE_SINCE_REBOOT_BUFFER_SIZE 32
+
+// Maximum component size.  The spec (https://github.com/Azure/opendigitaltwins-dtdl/blob/master/DTDL/v2/dtdlv2.md#component)
+// defines the maximum component length as 64 to which we need to reserve the null-terminator.
+#define MAX_COMPONENT_NAME_LENGTH (64 + 1)
+
 // Name of command this component supports to retrieve a report about the component.
 static const char g_getMaxMinReport[] = "getMaxMinReport";
+// Return codes for commands and desired property responses
+static int g_statusSuccess = 200;
+static int g_statusBadFormat = 400;
+static int g_statusNotFoundStatus = 404;
+static int g_statusInternalError = 500;
+
 
 // Names of properties for desired/reporting
 static const char g_targetTemperaturePropertyName[] = "targetTemperature";
@@ -44,12 +60,10 @@ static const char g_utf8EncodingType[] = "utf8";
 // Start time of the program, stored in ISO 8601 format string for UTC
 char g_programStartTime[TIME_BUFFER_SIZE] = {0};
 
-
 // Response description is an optional, human readable message including more information
-// about the setting of the temperature.  Because we accept all temperature requests, we 
-// always indicate a success.  An actual sensor could optionally return information about
-// a temperature being out of range or a mechanical issue on the device on error cases.
-static const char g_temperaturePropertyResponseDescription[] = "success";
+// about the setting of the temperature.  On success cases, this sample does not 
+// send a description to save bandwidth but on error cases we'll provide some hints.
+static const char g_temperaturePropertyResponseDescriptionNotInt[] = "desired temperature is not a number";
 
 //
 // PNP_THERMOSTAT_COMPONENT simulates a thermostat component
@@ -59,7 +73,7 @@ static const char g_temperaturePropertyResponseDescription[] = "success";
 typedef struct PNP_THERMOSTAT_COMPONENT_TAG
 {
     // Name of this component
-    char componentName[65]; // Consider best way to represent maximum, since it could change and cause problems over struct versioning.
+    char componentName[MAX_COMPONENT_NAME_LENGTH];
     // Current temperature of this thermostat component
     double currentTemperature;
     // Minimum temperature this thermostat has been at during current execution run of this thermostat component
@@ -251,58 +265,51 @@ static void UpdateTemperatureAndStatistics(PNP_THERMOSTAT_COMPONENT* pnpThermost
 //
 // SendTargetTemperatureResponse sends a PnP property indicating the device has received the desired targeted temperature
 //
-static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL, int version)
+static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient, const char* desiredTempString, int responseStatus, int version, const char* description)
 {
     char targetTemperatureAsString[32];
     IOTHUB_CLIENT_RESULT iothubClientResult;
-    //STRING_HANDLE jsonToSend = NULL;
 
-    if (snprintf(targetTemperatureAsString, sizeof(targetTemperatureAsString), g_targetTemperaturePropertyResponseFormat, pnpThermostatComponent->currentTemperature) < 0)
+    // IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE in this case specifies the response to a desired temperature.
+    IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE temperatureProperty;
+    memset(&temperatureProperty, 0, sizeof(temperatureProperty));
+    // Specify the structure version (not to be confused with the $version on IoT Hub) to protect back-compat in case the structure adds fields.
+    temperatureProperty.structVersion= IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_VERSION_1;
+    // This represents the version of the request from IoT Hub.  It needs to be returned so service applications can determine
+    // what current version of the writable property the device is currently using, as the server may update the property even when the device
+    // is offline.
+    temperatureProperty.ackVersion = version;
+    // Result of request, which maps to HTTP status code.  For sample we'll always indicate success.
+    temperatureProperty.result = responseStatus;
+    temperatureProperty.name = desiredTempString;
+    temperatureProperty.value = targetTemperatureAsString;
+    temperatureProperty.description = description;
+
+    unsigned char* propertySerialized;
+    size_t propertySerializedLength;
+
+    // The first step of reporting properties is to serialize it into an IoT Hub friendly format.  You can do this by either
+    // implementing the PnP convention for building up the correct JSON or more simply to use IoTHubClient_Serialize_WritablePropertyResponse.
+    if ((iothubClientResult = IoTHubClient_Serialize_WritablePropertyResponse(&temperatureProperty, 1, pnpThermostatComponent->componentName, &propertySerialized, &propertySerializedLength)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to create target temperature string for reporting result");
+        LogError("Unable to serialize updated property, error=%d", iothubClientResult);
+    }
+    // The output of IoTHubClient_Serialize_WritablePropertyResponse is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClient, propertySerialized, propertySerializedLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to send updated property, error=%d", iothubClientResult);
     }
     else
     {
-        // IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE in this case specifies the response to a desired temperature.
-        IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE temperatureProperty;
-        memset(&temperatureProperty, 0, sizeof(temperatureProperty));
-        // Specify the structure version (not to be confused with the $version on IoT Hub) to protect back-compat in case the structure adds fields.
-        temperatureProperty.structVersion= IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_VERSION_1;
-        // This represents the version of the request from IoT Hub.  It needs to be returned so service applications can determine
-        // what current version of the writable property the device is currently using, as the server may update the property even when the device
-        // is offline.
-        temperatureProperty.ackVersion = version;
-        // Result of request, which maps to HTTP status code.  For sample we'll always indicate success.
-        temperatureProperty.result = 200;
-        temperatureProperty.name = g_targetTemperaturePropertyName;
-        temperatureProperty.value = targetTemperatureAsString;
-
-        unsigned char* propertySerialized;
-        size_t propertySerializedLength;
-
-        // The first step of reporting properties is to serialize it into an IoT Hub friendly format.  You can do this by either
-        // implementing the PnP convention for building up the correct JSON or more simply to use IoTHubClient_Serialize_WritablePropertyResponse.
-        if ((iothubClientResult = IoTHubClient_Serialize_WritablePropertyResponse(&temperatureProperty, 1, pnpThermostatComponent->componentName, &propertySerialized, &propertySerializedLength)) != IOTHUB_CLIENT_OK)
-        {
-            LogError("Unable to serialize updated property, error=%d", iothubClientResult);
-        }
-        // The output of IoTHubClient_Serialize_WritablePropertyResponse is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
-        else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClientLL, propertySerialized, propertySerializedLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
-        {
-            LogError("Unable to send updated property, error=%d", iothubClientResult);
-        }
-        else
-        {
-            LogInfo("Sending acknowledgement of property to IoTHub for component=%s", pnpThermostatComponent->componentName);
-        }
-        IoTHubClient_Serialize_Properties_Destroy(propertySerialized); // TODO  - use proper free() function
+        LogInfo("Sending acknowledgement of property to IoTHub for component=%s", pnpThermostatComponent->componentName);
     }
+    IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
 }
 
-void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL)
+void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
 {
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
-    char maximumTemperatureAsString[32];
+    char maximumTemperatureAsString[MAX_TEMPERATURE_SINCE_REBOOT_BUFFER_SIZE];
     IOTHUB_CLIENT_RESULT iothubClientResult;
 
     if (snprintf(maximumTemperatureAsString, sizeof(maximumTemperatureAsString), g_maxTempSinceLastRebootPropertyFormat, pnpThermostatComponent->maxTemperature) < 0)
@@ -323,7 +330,7 @@ void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOS
             LogError("Unable to serialize reported state, error=%d", iothubClientResult);
         }
         // The output of IoTHubClient_Serialize_ReportedProperties is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
-        else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClientLL, propertySerialized, propertySerializedLength,  NULL, NULL)) != IOTHUB_CLIENT_OK)
+        else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClient, propertySerialized, propertySerializedLength,  NULL, NULL)) != IOTHUB_CLIENT_OK)
         {
             LogError("Unable to send reported state, error=%d", iothubClientResult);
         }
@@ -335,13 +342,14 @@ void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOS
     }
 }
 
-void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL, const char* propertyName, const char* propertyValue, int version)
+void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient, const char* propertyName, const char* propertyValue, int version)
 {
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
 
     if (strcmp(propertyName, g_targetTemperaturePropertyName) != 0)
     {
         LogError("Property=%s was requested to be changed but is not part of the thermostat interface definition", propertyName);
+        SendTargetTemperatureResponse(pnpThermostatComponent, deviceClient, propertyValue, g_statusBadFormat, version, g_temperaturePropertyResponseDescriptionNotInt);
     }
     else
     {
@@ -359,25 +367,25 @@ void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HAND
             UpdateTemperatureAndStatistics(pnpThermostatComponent, targetTemperature, &maxTempUpdated);
 
             // The device needs to let the service know that it has received the targetTemperature desired property.
-            SendTargetTemperatureResponse(pnpThermostatComponent, deviceClientLL, version);
+            SendTargetTemperatureResponse(pnpThermostatComponent, deviceClient, propertyValue, g_statusSuccess, version, NULL);
             
             if (maxTempUpdated)
             {
                 // If the Maximum temperature has been updated, we also report this as a property.
-                PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(pnpThermostatComponent, deviceClientLL);
+                PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(pnpThermostatComponent, deviceClient);
             }
         }
     }
 }
 
-void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL)
+void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
 {
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
     IOTHUB_MESSAGE_HANDLE messageHandle = NULL;
     IOTHUB_MESSAGE_RESULT messageResult;
     IOTHUB_CLIENT_RESULT iothubResult;
 
-    char temperatureStringBuffer[32];
+    char temperatureStringBuffer[CURRENT_TEMPERATURE_BUFFER_SIZE];
 
     if (snprintf(temperatureStringBuffer, sizeof(temperatureStringBuffer), g_temperatureTelemetryBodyFormat, pnpThermostatComponent->currentTemperature) < 0)
     {
@@ -399,7 +407,7 @@ void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
     {
         LogError("IoTHubMessage_SetContentEncodingSystemProperty failed, error=%d", messageResult);
     }
-    else if ((iothubResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClientLL, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    else if ((iothubResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClient, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
     {
         LogError("Unable to send telemetry message, error=%d", iothubResult);
     }

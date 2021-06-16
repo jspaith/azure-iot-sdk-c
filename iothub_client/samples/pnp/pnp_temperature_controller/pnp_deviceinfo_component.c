@@ -40,7 +40,7 @@ static const char PnPDeviceInfo_TotalStoragePropertyValue[] = "10000";
 static const char PnPDeviceInfo_TotalMemoryPropertyName[] = "totalMemory";
 static const char PnPDeviceInfo_TotalMemoryPropertyValue[] = "200";
 
-void PnP_DeviceInfoComponent_Report_All_Properties(const char* componentName, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL)
+void PnP_DeviceInfoComponent_Report_All_Properties(const char* componentName, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
 {
     IOTHUB_CLIENT_RESULT iothubClientResult;
     unsigned char* propertiesSerialized = NULL;
@@ -65,7 +65,7 @@ void PnP_DeviceInfoComponent_Report_All_Properties(const char* componentName, IO
         LogError("Unable to serialize reported state, error=%d", iothubClientResult);
     }
     // The output of IoTHubClient_Serialize_ReportedProperties is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClientLL, propertiesSerialized, propertiesSerializedLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClient, propertiesSerialized, propertiesSerializedLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
     {
         LogError("Unable to send reported state, error=%d", iothubClientResult);
     }

@@ -4,6 +4,8 @@
 #ifndef PNP_SAMPLE_CONFIG
 #define PNP_SAMPLE_CONFIG
 
+#include <stdbool.h>
+
 //
 // Whether we're using a connection string or DPS provisioning for device credentials
 //
@@ -46,4 +48,10 @@ typedef struct PNP_DEVICE_CONFIGURATION_TAG
     bool enableTracing;
 } PNP_DEVICE_CONFIGURATION;
 
-#endif /* PNP_SAMPLE_CONFIG */
+#endif /* PNP_SAMPLE_CONFIG */
+//
+// GetConfigurationFromEnvironment reads how to connect to the IoT Hub (using 
+// either a connection string or a DPS symmetric key) from the environment.
+//
+bool GetConnectionSettingsFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration);
+

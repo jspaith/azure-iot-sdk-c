@@ -17,7 +17,7 @@ IF(WIN32)
 ENDIF(WIN32)
 
 if(${use_prov_client})
-    set(pnp_temperature_controller_c_files ${pnp_temperature_controller_c_files} ../common/pnp_dps_ll.c)
+    set(pnp_temperature_controller_c_files ${pnp_temperature_controller_c_files} ../common/pnp_dps_ll.c ../common/pnp_sample_config.c)
 endif()
 
 #Conditionally use the SDK trusted certs in the samples
