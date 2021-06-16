@@ -12,15 +12,17 @@ urlFragment: azure-iot-pnp-device-samples-for-c
 
 # IoT Plug And Play device samples
 
-These samples demonstrate how a device that follows the [IoT Plug and Play conventions](https://docs.microsoft.com/azure/iot-pnp/concepts-convention) interacts with IoT Hub or IoT Central, to:
+These samples demonstrate how to implement an [IoT Plug and Play](https://aka.ms/iotpnp) device to interact with IoT Hub or IoT Central.  This demonstrates how to:
 
 - Send telemetry.
-- Update device twin properties.
+- Send properties.
+- Process incoming writable properties and acknowledge them.
 - Respond to command invocation.
 
 The samples demonstrate two scenarios:
 
-- An IoT Plug and Play device that implements the [Thermostat](https://devicemodels.azure.com/dtmi/com/example/thermostat-1.json) model. This model has a single interface that defines telemetry, read-only and read-write properties, and commands.
+- An IoT Plug and Play device that implements the [Thermostat](https://devicemodels.azure.com/dtmi/com/example/thermostat-1.json) model.
+This model has a single interface that defines telemetry, read-only and read-write properties, and commands.
 - An IoT Plug and Play device that implements the [Temperature controller](https://devicemodels.azure.com/dtmi/com/example/temperaturecontroller-1.json) model. This model uses multiple components:
   - The top-level interface defines telemetry, read-only property and commands.
   - The model includes two [Thermostat](https://devicemodels.azure.com/dtmi/com/example/thermostat-1.json) components, and a [device information](https://devicemodels.azure.com/dtmi/azure/devicemanagement/deviceinformation-1.json) component.
@@ -42,7 +44,7 @@ The directory contains the following samples:
 
 * [pnp_temperature_controller](./pnp_temperature_controller) A temperature controller that implements the model [dtmi:com:example:TemperatureController;1](https://devicemodels.azure.com/dtmi/com/example/temperaturecontroller-1.json).  This is considerably more complex than the [pnp_simple_thermostat](./pnp_simple_thermostat) and demonstrates the use of subcomponents.  **You should move onto this sample only after fully understanding pnp_simple_thermostat.**
 
-* [common](./common) This directory contains functions for serializing and de-serializing data for PnP and for creating the `IOTHUB_DEVICE_CLIENT_HANDLE` that acts as the transport.  `pnp_temperature_controller` makes extensive use of these functions and demonstrates their use.  **The files in [common](./common) are written generically such that your PnP device application should be able to use them with little or no modification, speeding up your development.**
+* [common](./common) The **common** directory contains helper libraries used by the samples.
 
 ## Configuring the samples
 

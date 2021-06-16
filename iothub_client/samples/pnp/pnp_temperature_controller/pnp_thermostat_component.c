@@ -295,7 +295,7 @@ static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermosta
         {
             LogInfo("Sending acknowledgement of property to IoTHub for component=%s", pnpThermostatComponent->componentName);
         }
-        free(propertySerialized);
+        IoTHubClient_Serialize_Properties_Destroy(propertySerialized); // TODO  - use proper free() function
     }
 }
 
@@ -304,7 +304,6 @@ void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOS
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
     char maximumTemperatureAsString[32];
     IOTHUB_CLIENT_RESULT iothubClientResult;
-    //STRING_HANDLE jsonToSend = NULL;
 
     if (snprintf(maximumTemperatureAsString, sizeof(maximumTemperatureAsString), g_maxTempSinceLastRebootPropertyFormat, pnpThermostatComponent->maxTemperature) < 0)
     {

@@ -355,7 +355,7 @@ static int PnP_TempControlComponent_CommandCallback(const char* componentName, c
 
 int PnP_TempControlComponent_UpdatedPropertyCallback(
     IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, 
-    const unsigned char* payLoad,
+    const unsigned char* payload,
     size_t payloadLength,
     void* userContextCallback)
 {
@@ -365,7 +365,7 @@ int PnP_TempControlComponent_UpdatedPropertyCallback(
     int propertiesVersion;
     IOTHUB_CLIENT_RESULT clientResult;
 
-    if ((clientResult = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, payLoad, payloadLength, g_modeledComponents, g_numModeledComponents, &propertyIterator, &propertiesVersion)) != IOTHUB_CLIENT_OK)
+    if ((clientResult = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, payload, payloadLength, g_modeledComponents, g_numModeledComponents, &propertyIterator, &propertiesVersion)) != IOTHUB_CLIENT_OK)
     {
         LogError("IoTHubClient_Deserialize_Properties failed, error=%d", clientResult);
     }
@@ -415,7 +415,6 @@ int PnP_TempControlComponent_UpdatedPropertyCallback(
     }
 
     IoTHubClient_Deserialize_Properties_DestroyIterator(propertyIterator);
-    return 0;
 }
 
 

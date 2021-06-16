@@ -19,8 +19,11 @@
 #include "iothub_message.h"
 #include "iothub_client_options.h"
 #include "iothubtransportmqtt.h"
+#include "iothub_client_properties.h"
+
 #include "azure_c_shared_utility/threadapi.h"
 #include "azure_c_shared_utility/xlogging.h"
+
 
 #ifdef SET_TRUSTED_CERT_IN_SAMPLES
 #include "azure_c_shared_utility/shared_util_options.h"
@@ -80,13 +83,13 @@ static bool g_hubClientTraceEnabled = true;
 // This device's PnP ModelId.
 static const char g_ThermostatModelId[] = "dtmi:com:example:Thermostat;1";
 
-// JSON fields from desired property to retrieve.
-static const char g_IoTHubTwinDesiredVersion[] = "$version";
-static const char g_JSONTargetTemperature[] = "targetTemperature";
+// Names of properties for desired/reporting
+static const char g_targetTemperaturePropertyName[] = "targetTemperature";
+static const char g_maxTempSinceLastRebootPropertyName[] = "maxTempSinceLastReboot";
 
 // Name of command this component supports to get report information
 static const char g_getMaxMinReport[] = "getMaxMinReport";
-// Return codes for device methods and desired property responses
+// Return codes for commands and desired property responses
 static int g_statusSuccess = 200;
 static int g_statusBadFormat = 400;
 static int g_statusNotFoundStatus = 404;
@@ -115,14 +118,11 @@ static const char g_maxMinCommandResponseFormat[] = "{\"maxTemp\":%.2f,\"minTemp
 // Format string for sending temperature telemetry
 static const char g_temperatureTelemetryBodyFormat[] = "{\"temperature\":%.02f}";
 
-// Format string to report the property maximum temperature since reboot.  This is a "read only" property from the
-// service solution's perspective, which means we don't need to include any sort of status codes.
-static const char g_maxTemperatureSinceRebootFormat[] = "{\"maxTempSinceLastReboot\":%.2f}";
+// Format string for sending maxTempSinceLastReboot property
+static const char g_maxTempSinceLastRebootPropertyFormat[] = "%.2f";
+// Format of the body when responding to a targetTemperature 
+static const char g_targetTemperaturePropertyResponseFormat[] = "%.2f";
 
-// Format string to indicate the device received an update request for the temperature.  Because this is a "writable"
-// property from the service solution's perspective, we need to return a status code (HTTP status code style) and version
-// for the solution to correlate the request and its status.
-static const char g_targetTemperatureResponseFormat[] = "{\"targetTemperature\":{\"value\":%.2f,\"ac\":%d,\"av\":%d,\"ad\":\"%s\"}}";
 
 // Response description is an optional, human readable message including more information
 // about the setting of the temperature.  Because we accept all temperature requests, we 
@@ -203,7 +203,7 @@ static bool BuildMaxMinCommandResponse(unsigned char** response, size_t* respons
         LogError("snprintf to determine string length for command response failed");
         result = false;
     }
-    // We MUST allocate the response buffer.  It is returned to the IoTHub SDK in the direct method callback and the SDK in turn sends this to the server.
+    // We MUST allocate the response buffer.  It is returned to the IoTHub SDK in the command callback and the SDK in turn sends this to the server.
     else if ((responseBuilder = calloc(1, responseBuilderSize + 1)) == NULL)
     {
         LogError("Unable to allocate %lu bytes", (unsigned long)(responseBuilderSize + 1));
@@ -253,25 +253,31 @@ static void SetEmptyCommandResponse(unsigned char** response, size_t* responseSi
 }
 
 //
-// Thermostat_DeviceMethodCallback is invoked by IoT SDK when a device method arrives.
+// Thermostat_CommandCallback is invoked by IoT SDK when a command arrives.
 //
-static int Thermostat_DeviceMethodCallback(const char* methodName, const unsigned char* payload, size_t size, unsigned char** response, size_t* responseSize, void* userContextCallback)
+static int Thermostat_CommandCallback(const char* componentName, const char* commandName, const unsigned char* payload, size_t size, const char* payloadContentType, unsigned char** response, size_t* responseSize, void* userContextCallback)
 {
     (void)userContextCallback;
+    (void)payloadContentType; 
 
     char* jsonStr = NULL;
     JSON_Value* rootValue = NULL;
     const char* sinceStr;
     int result;
 
-    LogInfo("Device method %s arrived", methodName);
+    LogInfo("Device command %s arrived", commandName);
 
     *response = NULL;
     *responseSize = 0;
 
-    if (strcmp(methodName, g_getMaxMinReport) != 0)
+    if (componentName != NULL)
     {
-        LogError("Method name %s is not supported on this component", methodName);
+        LogError("This model only supports root components, but component %s was specified in command", componentName);
+        result = g_statusNotFoundStatus;
+    }
+    else if (strcmp(commandName, g_getMaxMinReport) != 0)
+    {
+        LogError("Command name %s is not supported on this component", commandName);
         result = g_statusNotFoundStatus;
     }
     else if ((jsonStr = CopyTwinPayloadToString(payload, size)) == NULL)
@@ -314,38 +320,6 @@ static int Thermostat_DeviceMethodCallback(const char* methodName, const unsigne
 }
 
 //
-// GetDesiredJson retrieves JSON_Object* in the JSON tree corresponding to the desired payload.
-//
-static JSON_Object* GetDesiredJson(DEVICE_TWIN_UPDATE_STATE updateState, JSON_Value* rootValue)
-{
-    JSON_Object* rootObject = NULL;
-    JSON_Object* desiredObject;
-
-    if ((rootObject = json_value_get_object(rootValue)) == NULL)
-    {
-        LogError("Unable to get root object of JSON");
-        desiredObject = NULL;
-    }
-    else
-    {
-        if (updateState == DEVICE_TWIN_UPDATE_COMPLETE)
-        {
-            // For a complete update, the JSON from IoTHub will contain both "desired" and "reported" - the full twin.
-            // We only care about "desired" in this sample, so just retrieve it.
-            desiredObject = json_object_get_object(rootObject, "desired");
-        }
-        else
-        {
-            // For a patch update, IoTHub only sends "desired" portion of twin and does not explicitly put a "desired:" JSON envelope.
-            // So here we simply need the root of the JSON itself.
-            desiredObject = rootObject;
-        }
-    }
-
-    return desiredObject;
-}
-
-//
 // UpdateTemperatureAndStatistics updates the temperature and min/max/average values
 //
 static void UpdateTemperatureAndStatistics(double desiredTemp, bool* maxTempUpdated)
@@ -372,19 +346,48 @@ static void UpdateTemperatureAndStatistics(double desiredTemp, bool* maxTempUpda
 static void SendTargetTemperatureReport(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL, double desiredTemp, int responseStatus, int version, const char* description)
 {
     IOTHUB_CLIENT_RESULT iothubClientResult;
-    char targetTemperatureResponseProperty[256];
+    char targetTemperatureAsString[32]; // TODO - no magic #'s.
 
-    if (snprintf(targetTemperatureResponseProperty, sizeof(targetTemperatureResponseProperty), g_targetTemperatureResponseFormat, desiredTemp, responseStatus, version, description) < 0)
+    if (snprintf(targetTemperatureAsString, sizeof(targetTemperatureAsString), g_targetTemperaturePropertyResponseFormat, desiredTemp) != 0)
     {
-        LogError("snprintf building targetTemperature response failed");
-    }
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendReportedState(deviceClientLL, (const unsigned char*)targetTemperatureResponseProperty, strlen(targetTemperatureResponseProperty), NULL, NULL)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to send reported state for target temperature.  Error=%d", iothubClientResult);
+        LogError("Unable to create target temperature string for reporting result");
     }
     else
     {
-        LogInfo("Sending maxTempSinceReboot property");
+        // IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE in this case specifies the response to a desired temperature.
+        IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE temperatureProperty;
+        memset(&temperatureProperty, 0, sizeof(temperatureProperty));
+        // Specify the structure version (not to be confused with the $version on IoT Hub) to protect back-compat in case the structure adds fields.
+        temperatureProperty.structVersion= IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_VERSION_1;
+        // This represents the version of the request from IoT Hub.  It needs to be returned so service applications can determine
+        // what current version of the writable property the device is currently using, as the server may update the property even when the device
+        // is offline.
+        temperatureProperty.ackVersion = version;
+        // Result of request, which maps to HTTP status code.  For sample we'll always indicate success.
+        temperatureProperty.result = responseStatus;
+        temperatureProperty.name = g_targetTemperaturePropertyName;
+        temperatureProperty.value = targetTemperatureAsString;
+        temperatureProperty.description = description;
+
+        unsigned char* propertySerialized;
+        size_t propertySerializedLength;
+
+        // The first step of reporting properties is to serialize it into an IoT Hub friendly format.  You can do this by either
+        // implementing the PnP convention for building up the correct JSON or more simply to use IoTHubClient_Serialize_WritablePropertyResponse.
+        if ((iothubClientResult = IoTHubClient_Serialize_WritablePropertyResponse(&temperatureProperty, 1, NULL, &propertySerialized, &propertySerializedLength)) != IOTHUB_CLIENT_OK)
+        {
+            LogError("Unable to serialize updated property, error=%d", iothubClientResult);
+        }
+        // The output of IoTHubClient_Serialize_WritablePropertyResponse is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
+        else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClientLL, propertySerialized, propertySerializedLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
+        {
+            LogError("Unable to send updated property, error=%d", iothubClientResult);
+        }
+        else
+        {
+            LogInfo("Sending acknowledgement of property to IoTHub");
+        }
+        IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
     }
 }
 
@@ -394,83 +397,59 @@ static void SendTargetTemperatureReport(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceCli
 static void SendMaxTemperatureSinceReboot(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL)
 {
     IOTHUB_CLIENT_RESULT iothubClientResult;
-    char maxTemperatureSinceRebootProperty[256];
+    char maximumTemperatureAsString[32];
 
-    if (snprintf(maxTemperatureSinceRebootProperty, sizeof(maxTemperatureSinceRebootProperty), g_maxTemperatureSinceRebootFormat, g_maxTemperature) < 0)
+    if (snprintf(maximumTemperatureAsString, sizeof(maximumTemperatureAsString), g_maxTempSinceLastRebootPropertyFormat, g_maxTemperature) < 0)
     {
-        LogError("snprintf building maxTemperature failed");
-    }
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendReportedState(deviceClientLL, (const unsigned char*)maxTemperatureSinceRebootProperty, strlen(maxTemperatureSinceRebootProperty), NULL, NULL)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to send reported state for maximum temperature.  Error=%d", iothubClientResult);
+        LogError("Unable to create max temp since last reboot string for reporting result");
     }
     else
     {
-        LogInfo("Sending maxTempSinceReboot property");
+        IOTHUB_CLIENT_REPORTED_PROPERTY maxTempProperty = { IOTHUB_CLIENT_REPORTED_PROPERTY_VERSION_1, g_maxTempSinceLastRebootPropertyName, maximumTemperatureAsString };
+
+        unsigned char* propertySerialized = NULL;
+        size_t propertySerializedLength;
+
+        // The first step of reporting properties is to serialize it into an IoT Hub friendly format.  You can do this by either
+        // implementing the PnP convention for building up the correct JSON or more simply to use IoTHubClient_Serialize_ReportedProperties.
+        if ((iothubClientResult = IoTHubClient_Serialize_ReportedProperties(&maxTempProperty, 1, NULL, &propertySerialized, &propertySerializedLength)) != IOTHUB_CLIENT_OK)
+        {
+            LogError("Unable to serialize reported state, error=%d", iothubClientResult);
+        }
+        // The output of IoTHubClient_Serialize_ReportedProperties is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
+        else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClientLL, propertySerialized, propertySerializedLength,  NULL, NULL)) != IOTHUB_CLIENT_OK)
+        {
+            LogError("Unable to send reported state, error=%d", iothubClientResult);
+        }
+        else
+        {
+            LogInfo("Sending maximumTemperatureSinceLastReboot property to IoTHub for component"); // TODO: Not logging error code but should be.
+        }
+        IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
     }
 }
 
 //
-// Thermostat_DeviceTwinCallback is invoked by the IoT SDK when a twin - either full twin or a PATCH update - arrives.
+// Thermostat_ProcessTargetTemperature processes a writable update for desired temperature property.
 //
-static void Thermostat_DeviceTwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, const unsigned char* payload, size_t size, void* userContextCallback)
+static void Thermostat_ProcessTargetTemperature(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL, IOTHUB_CLIENT_DESERIALIZED_PROPERTY* property, int propertiesVersion)
 {
-    // The device handle associated with this request is passed as the context, since we will need to send reported events back.
-    IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL = (IOTHUB_DEVICE_CLIENT_LL_HANDLE)userContextCallback;
-
-    char* jsonStr = NULL;
-    JSON_Value* rootValue = NULL;
-    JSON_Object* desiredObject;
-    JSON_Value* versionValue = NULL;
-    JSON_Value* targetTemperatureValue = NULL;
-
-    LogInfo("DeviceTwin callback invoked");
-
-    if ((jsonStr = CopyTwinPayloadToString(payload, size)) == NULL)
+    char* next;
+    double targetTemperature = strtol(property->value.str, &next, 10);
+    if ((property->value.str == next) || (targetTemperature == LONG_MAX) || (targetTemperature == LONG_MIN))
     {
-        LogError("Unable to allocate twin buffer");
-    }
-    else if ((rootValue = json_parse_string(jsonStr)) == NULL)
-    {
-        LogError("Unable to parse twin JSON");
-    }
-    else if ((desiredObject = GetDesiredJson(updateState, rootValue)) == NULL)
-    {
-        LogError("Cannot retrieve desired JSON object");
-    }
-    else if ((targetTemperatureValue = json_object_get_value(desiredObject, g_JSONTargetTemperature)) == NULL)
-    {
-        LogInfo("JSON property %s not specified.  This is NOT an error as the server doesn't need to set this, but there is no further action to take.", g_JSONTargetTemperature);
-    }
-    else if ((versionValue = json_object_get_value(desiredObject, g_IoTHubTwinDesiredVersion)) == NULL)
-    {
-        // The $version does need to be set in *any* legitimate twin desired document.  Its absence suggests 
-        // something is fundamentally wrong with how we've received the twin and we should not proceed.
-        LogError("Cannot retrieve field %s for twin.  The underlying IoTHub device twin protocol (NOT the service solution directly) should have specified this.", g_IoTHubTwinDesiredVersion);
-    }
-    else if (json_value_get_type(versionValue) != JSONNumber)
-    {
-        // The $version must be a number (and in practice an int) A non-numerical value indicates 
-        // something is fundamentally wrong with how we've received the twin and we should not proceed.
-        LogError("JSON field %s is not a number but must be", g_IoTHubTwinDesiredVersion);
-    }
-    else if (json_value_get_type(targetTemperatureValue) != JSONNumber)
-    {
-        LogError("JSON field %s is not a number", g_JSONTargetTemperature);
+        LogError("Property %s is not a valid integer", property->value.str);
     }
     else
     {
-        double targetTemperature = json_value_get_number(targetTemperatureValue);
-        int version = (int)json_value_get_number(versionValue);
-
         LogInfo("Received targetTemperature = %f", targetTemperature);
-
+        
         bool maxTempUpdated = false;
         UpdateTemperatureAndStatistics(targetTemperature, &maxTempUpdated);
-
+        
         // The device needs to let the service know that it has received the targetTemperature desired property.
-        SendTargetTemperatureReport(deviceClientLL, targetTemperature, g_statusSuccess, version, g_temperaturePropertyResponseDescription);
-
+        SendTargetTemperatureReport(deviceClientLL, targetTemperature, g_statusSuccess, propertiesVersion, g_temperaturePropertyResponseDescription);
+        
         if (maxTempUpdated)
         {
             // If the Maximum temperature has been updated, we also report this as a property.
@@ -478,8 +457,65 @@ static void Thermostat_DeviceTwinCallback(DEVICE_TWIN_UPDATE_STATE updateState, 
         }
     }
 
-    json_value_free(rootValue);
-    free(jsonStr);
+}
+
+//
+// Thermostat_UpdatedPropertyCallback is invoked by the IoT SDK when a twin - either full twin or a PATCH update - arrives.
+//
+static void Thermostat_UpdatedPropertyCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType,  const unsigned char* payload, size_t payloadLength, void* userContextCallback)
+{
+    IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClientLL = (IOTHUB_DEVICE_CLIENT_LL_HANDLE)userContextCallback;
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE propertyIterator;
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY property;
+    int propertiesVersion;
+    IOTHUB_CLIENT_RESULT clientResult;
+
+    if ((clientResult = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, payload, payloadLength, NULL, 0, &propertyIterator, &propertiesVersion)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("IoTHubClient_Deserialize_Properties failed, error=%d", clientResult);
+    }
+    else
+    {
+        bool propertySpecified;
+        property.structVersion = IOTHUB_CLIENT_DESERIALIZED_PROPERTY_VERSION_1;
+
+        while ((clientResult = IoTHubClient_Deserialize_Properties_GetNextProperty(propertyIterator, &property, &propertySpecified)) == IOTHUB_CLIENT_OK)
+        {
+            if (propertySpecified == false)
+            {
+                break;
+            }
+
+            if (property.propertyType == IOTHUB_CLIENT_PROPERTY_TYPE_REPORTED_FROM_DEVICE)
+            {
+                // We are iterating over a property that the device has previously sent to IoT Hub; 
+                // this shows what IoT Hub has recorded the reported property as.
+                //
+                // There are scenarios where a device may use this, such as knowing whether the
+                // given property has changed on the device and needs to be re-reported.
+                //
+                // This sample doesn't do anything with this, so we'll continue on when we hit reported properties.
+                continue;
+            }
+            
+            if (property.componentName != NULL) 
+            {   
+                LogError("Property=%s arrived for a non-root component, which we do not support", property.name);
+            }
+            else if (strcmp(property.componentName, g_targetTemperaturePropertyName) == 0)
+            {
+                Thermostat_ProcessTargetTemperature(deviceClientLL, &property, propertiesVersion);
+            }
+            else
+            {
+                LogError("Property=%s is not implemented", property.name);
+            }
+            
+            IoTHubClient_Deserialize_Properties_DestroyProperty(&property);
+        }
+    }
+
+    IoTHubClient_Deserialize_Properties_DestroyIterator(propertyIterator);
 }
 
 //
@@ -500,7 +536,7 @@ void Thermostat_SendCurrentTemperature(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClie
     {
         LogError("IoTHubMessage_CreateFromString failed");
     }
-    else if ((iothubResult = IoTHubDeviceClient_LL_SendEventAsync(deviceClientLL, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    else if ((iothubResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClientLL, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
     {
         LogError("Unable to send telemetry message, error=%d", iothubResult);
     }
@@ -665,23 +701,10 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateAndConfigureDeviceClientHandleForPnP
     }
     // Sets the name of ModelId for this PnP device.
     // This *MUST* be set before the client is connected to IoTHub.  We do not automatically connect when the 
-    // handle is created, but will implicitly connect to subscribe for device method and device twin callbacks below.
+    // handle is created, but will implicitly connect to subscribe for command and property callbacks below.
     else if ((iothubResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_MODEL_ID, g_ThermostatModelId)) != IOTHUB_CLIENT_OK)
     {
         LogError("Unable to set the ModelID, error=%d", iothubResult);
-        result = false;
-    }
-    // Sets the callback function that processes incoming device methods, which is the channel PnP Commands are transferred over
-    else if ((iothubResult = IoTHubDeviceClient_LL_SetDeviceMethodCallback(deviceHandle, Thermostat_DeviceMethodCallback, NULL)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to set device method callback, error=%d", iothubResult);
-        result = false;
-    }
-    // Sets the callback function that processes device twin changes from the IoTHub, which is the channel that PnP Properties are 
-    // transferred over.  This will also automatically retrieve the full twin for the application. 
-    else if ((iothubResult = IoTHubDeviceClient_LL_SetDeviceTwinCallback(deviceHandle, Thermostat_DeviceTwinCallback, (void*)deviceHandle)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to set device twin callback, error=%d", iothubResult);
         result = false;
     }
     // Enabling auto url encode will have the underlying SDK perform URL encoding operations automatically.
@@ -698,6 +721,19 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateAndConfigureDeviceClientHandleForPnP
         result = false;
     }
 #endif // SET_TRUSTED_CERT_IN_SAMPLES
+    // Sets the callback function that processes incoming commands, which is the channel PnP Commands are transferred over
+    else if ((iothubResult = IoTHubDeviceClient_LL_SubscribeToCommands(deviceHandle, Thermostat_CommandCallback, NULL)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to subscribe for commands, error=%d", iothubResult);
+        result = false;
+    }
+    // Sets the callback function that processes device twin changes from the IoTHub, which is the channel that PnP Properties are 
+    // transferred over.  This will also automatically retrieve the full twin for the application. 
+    else if ((iothubResult = IoTHubDeviceClient_LL_GetPropertiesAndSubscribeToUpdatesAsync(deviceHandle, Thermostat_UpdatedPropertyCallback, (void*)deviceHandle)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to set device twin callback, error=%d", iothubResult);
+        result = false;
+    }
     else
     {
         result = true;
