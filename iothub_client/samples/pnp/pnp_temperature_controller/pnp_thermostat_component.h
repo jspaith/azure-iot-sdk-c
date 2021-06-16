@@ -34,8 +34,8 @@ PNP_THERMOSTAT_COMPONENT_HANDLE PnP_ThermostatComponent_CreateHandle(const char*
 void PnP_ThermostatComponent_Destroy(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle);
 
 //
-// PnP_ThermostatComponent_ProcessCommand is used to process any incoming PnP Commands, transferred via the IoTHub device method channel,
-// to the given PNP_THERMOSTAT_COMPONENT_HANDLE.  The function returns an HTTP style return code to indicate success or failure.
+// PnP_ThermostatComponent_ProcessCommand is used to process any incoming PnP Commands to the given PNP_THERMOSTAT_COMPONENT_HANDLE.  
+// The function returns an HTTP style return code to indicate success or failure.
 //
 int PnP_ThermostatComponent_ProcessCommand(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, const char *pnpCommandName, JSON_Value* commandJsonValue, unsigned char** response, size_t* responseSize);
 

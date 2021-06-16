@@ -456,7 +456,6 @@ static void Thermostat_ProcessTargetTemperature(IOTHUB_DEVICE_CLIENT_LL_HANDLE d
             SendMaxTemperatureSinceReboot(deviceClientLL);
         }
     }
-
 }
 
 //

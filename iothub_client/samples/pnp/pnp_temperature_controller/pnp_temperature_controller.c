@@ -147,8 +147,7 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE AllocateDeviceClientHandle(const PNP_DEVIC
 //
 // TempControl_CreateDeviceClientLLHandle creates an IOTHUB_DEVICE_CLIENT_LL_HANDLE that will be ready to interact with PnP.
 // Beyond basic handle creation, it also sets the handle to the appropriate ModelId, optionally sets up callback functions
-// for Device Method and Device Twin callbacks (to process PnP Commands and Properties, respectively)
-// as well as some other basic maintenence on the handle. 
+// for command and property callbacks as well as some other basic setup.
 //
 // NOTE: When using DPS based authentication, this function can *block* until DPS responds to the request or timeout.
 //
@@ -179,7 +178,7 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE TempControl_CreateDeviceClientLLHandle(con
     }
     // Sets the name of ModelId for this PnP device.
     // This *MUST* be set before the client is connected to IoTHub.  We do not automatically connect when the 
-    // handle is created, but will implicitly connect to subscribe for device method and device twin callbacks below.
+    // handle is created, but will implicitly connect to subscribe for command and property callbacks below.
     else if ((iothubResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_MODEL_ID, pnpDeviceConfiguration->modelId)) != IOTHUB_CLIENT_OK)
     {
         LogError("Unable to set the ModelID, error=%d", iothubResult);
@@ -282,7 +281,7 @@ static char* CopyPayloadToString(const unsigned char* payload, size_t size)
 }
 
 //
-// PnP_TempControlComponent_DeviceMethodCallback is invoked by IoT SDK when a device method arrives.
+// PnP_TempControlComponent_CommandCallback is invoked by IoT SDK when a command arrives.
 //
 static int PnP_TempControlComponent_CommandCallback(const char* componentName, const char* commandName, const unsigned char* payload, size_t size, const char* payloadContentType, unsigned char** response, size_t* responseSize, void* userContextCallback)
 {
@@ -300,12 +299,12 @@ static int PnP_TempControlComponent_CommandCallback(const char* componentName, c
 
     if ((jsonStr = CopyPayloadToString(payload, size)) == NULL)
     {
-        LogError("Unable to allocate twin buffer");
+        LogError("Unable to allocate buffer");
         result = 500;
     }
     else if ((rootValue = json_parse_string(jsonStr)) == NULL)
     {
-        LogError("Unable to parse twin JSON");
+        LogError("Unable to parse JSON");
         result = 500;
     }
     else

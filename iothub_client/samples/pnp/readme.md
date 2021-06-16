@@ -42,7 +42,7 @@ The directory contains the following samples:
 
 * [pnp_simple_thermostat](./pnp_simple_thermostat) A simple thermostat that implements the model [dtmi:com:example:Thermostat;1](https://devicemodels.azure.com/dtmi/com/example/thermostat-1.json).  This sample is considered simple because it only implements one component, the thermostat itself.  **You should begin with this sample.**
 
-* [pnp_temperature_controller](./pnp_temperature_controller) A temperature controller that implements the model [dtmi:com:example:TemperatureController;1](https://devicemodels.azure.com/dtmi/com/example/temperaturecontroller-1.json).  This is considerably more complex than the [pnp_simple_thermostat](./pnp_simple_thermostat) and demonstrates the use of subcomponents.  **You should move onto this sample only after fully understanding pnp_simple_thermostat.**
+* [pnp_temperature_controller](./pnp_temperature_controller) A temperature controller that implements the model [dtmi:com:example:TemperatureController;1](https://devicemodels.azure.com/dtmi/com/example/temperaturecontroller-1.json).  This is considerably more complex than the [pnp_simple_thermostat](./pnp_simple_thermostat) and demonstrates the use of components in addition to the root component.  **You should reference this sample only if your application requires more than one component and only after understanding pnp_simple_thermostat.**
 
 * [common](./common) The **common** directory contains helper libraries used by the samples.
 

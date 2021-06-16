@@ -1,0 +1,10 @@
+
+static int PnP_TempControlComponent_InvokeRebootCommand(JSON_Value* rootValue);
+void PnP_TempControlComponent_SendWorkingSet(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient);
+PnP_TempControlComponent_ReportSerialNumber_Property;
+
+
+
+
+
+

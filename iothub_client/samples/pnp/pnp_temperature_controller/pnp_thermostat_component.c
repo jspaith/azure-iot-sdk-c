@@ -160,7 +160,7 @@ static bool BuildMaxMinCommandResponse(PNP_THERMOSTAT_COMPONENT* pnpThermostatCo
         LogError("snprintf to determine string length for command response failed");
         result = false;
     }
-    // We MUST allocate the response buffer.  It is returned to the IoTHub SDK in the direct method callback and the SDK in turn sends this to the server.
+    // We MUST allocate the response buffer.  It is returned to the IoTHub SDK in the command callback and the SDK in turn sends this to the server.
     else if ((responseBuilder = calloc(1, responseBuilderSize + 1)) == NULL)
     {
         LogError("Unable to allocate %lu bytes", (unsigned long)(responseBuilderSize + 1));
