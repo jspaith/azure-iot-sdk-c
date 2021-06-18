@@ -429,7 +429,7 @@ static void Thermostat_ProcessTargetTemperature(IOTHUB_DEVICE_CLIENT_LL_HANDLE d
 //
 // Thermostat_PropertiesCallback is invoked when properties arrive from the server.
 //
-static void Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType,  const unsigned char* payload, size_t payloadLength, void* userContextCallback)
+static int Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType,  const unsigned char* payload, size_t payloadLength, void* userContextCallback)
 {
     IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient = (IOTHUB_DEVICE_CLIENT_LL_HANDLE)userContextCallback;
     IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE propertyIterator = NULL;
@@ -489,6 +489,7 @@ static void Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE pa
     }
 
     IoTHubClient_Deserialize_Properties_DestroyIterator(propertyIterator);
+    return 0;
 }
 
 //
@@ -526,11 +527,6 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateDeviceClientLLHandle(void)
 #ifdef USE_PROV_MODULE_FULL
     if (g_pnpDeviceConfiguration.securityType == PNP_CONNECTION_SECURITY_TYPE_DPS)
     {
-        // Pass the modelId to DPS here AND later on to IoT Hub (see SetOption on OPTION_MODEL_ID) when
-        // that connection is created.  We need to do both because DPS does not auto-populate the modelId
-        // it receives on DPS connection to the IoT Hub.
-        g_pnpDeviceConfiguration.modelId = g_ThermostatModelId;
-        g_pnpDeviceConfiguration.enableTracing = g_hubClientTraceEnabled;
         return PnP_CreateDeviceClientLLHandle_ViaDps(&g_pnpDeviceConfiguration);
     }
 #endif
@@ -623,6 +619,9 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateAndConfigureDeviceClientHandleForPnP
 int main(void)
 {
     IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient = NULL;
+
+    g_pnpDeviceConfiguration.modelId = g_ThermostatModelId;
+    g_pnpDeviceConfiguration.enableTracing = g_hubClientTraceEnabled;
 
     if (GetConnectionSettingsFromEnvironment(&g_pnpDeviceConfiguration) == false)
     {

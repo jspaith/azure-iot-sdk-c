@@ -15,13 +15,16 @@
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/threadapi.h"
 #include "azure_c_shared_utility/xlogging.h"
+#include "azure_c_shared_utility/crt_abstractions.h"
 
-// DPS related header files
+
+// DPS and IoT Hub related header files
 #include "azure_prov_client/iothub_security_factory.h"
 #include "azure_prov_client/prov_device_client.h"
 #include "azure_prov_client/prov_transport_mqtt_client.h"
 #include "azure_prov_client/prov_security_factory.h"
 #include "azure_prov_client/prov_client_model.h"
+#include "iothub_device_client_ll.h"
 
 
 // State of DPS registration process.  We cannot proceed with PnP until we get into the state PNP_DPS_REGISTRATION_SUCCEEDED.

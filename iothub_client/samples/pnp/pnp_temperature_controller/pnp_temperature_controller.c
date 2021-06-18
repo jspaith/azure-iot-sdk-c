@@ -121,80 +121,6 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE AllocateDeviceClientHandle(const PNP_DEVIC
 }
 
 //
-// TempControl_CreateDeviceClientLLHandle creates an IOTHUB_DEVICE_CLIENT_LL_HANDLE that will be ready to interact with PnP.
-// Beyond basic handle creation, it also sets the handle to the appropriate ModelId, optionally sets up callback functions
-// for command and property callbacks as well as some other basic setup.
-//
-// NOTE: When using DPS based authentication, this function can *block* until DPS responds to the request or timeout.
-//
-static IOTHUB_DEVICE_CLIENT_LL_HANDLE TempControl_CreateDeviceClientLLHandle(const PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration)
-{
-    IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceHandle = NULL;
-    IOTHUB_CLIENT_RESULT iothubClientResult;
-    bool urlAutoEncodeDecode = true;
-    int iothubInitResult;
-    bool result;
-
-    // Before invoking ANY IoT Hub or DPS functionality, IoTHub_Init must be invoked.
-    if ((iothubInitResult = IoTHub_Init()) != 0)
-    {
-        LogError("Failure to initialize client, error=%d", iothubInitResult);
-        result = false;
-    }
-    else if ((deviceHandle = AllocateDeviceClientHandle(pnpDeviceConfiguration)) == NULL)
-    {
-        LogError("Unable to allocate deviceHandle");
-        result = false;
-    }
-    // Sets verbosity level
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_LOG_TRACE, &pnpDeviceConfiguration->enableTracing)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to set logging option, error=%d", iothubClientResult);
-        result = false;
-    }
-    // Sets the name of ModelId for this PnP device.
-    // This *MUST* be set before the client is connected to IoTHub.  We do not automatically connect when the 
-    // handle is created, but will implicitly connect to subscribe for command and property callbacks below.
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_MODEL_ID, pnpDeviceConfiguration->modelId)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to set the ModelID, error=%d", iothubClientResult);
-        result = false;
-    }
-    // Enabling auto url encode will have the underlying SDK perform URL encoding operations automatically.
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_AUTO_URL_ENCODE_DECODE, &urlAutoEncodeDecode)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to set auto Url encode option, error=%d", iothubClientResult);
-        result = false;
-    }
-#ifdef SET_TRUSTED_CERT_IN_SAMPLES
-    // Setting the Trusted Certificate.  This is only necessary on systems without built in certificate stores.
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_TRUSTED_CERT, certificates)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("Unable to set the trusted cert, error=%d", iothubClientResult);
-        result = false;
-    }
-#endif // SET_TRUSTED_CERT_IN_SAMPLES
-    else
-    {
-        result = true;
-    }
-
-    if ((result == false) && (deviceHandle != NULL))
-    {
-        IoTHubDeviceClient_LL_Destroy(deviceHandle);
-        deviceHandle = NULL;
-    }
-
-    if ((result == false) &&  (iothubInitResult == 0))
-    {
-        IoTHub_Deinit();
-    }
-
-    return deviceHandle;
-}
-
-
-//
 // PnP_TempControlComponent_InvokeRebootCommand processes the reboot command on the root interface
 //
 static int PnP_TempControlComponent_InvokeRebootCommand(JSON_Value* rootValue)
@@ -330,7 +256,7 @@ static int PnP_TempControlComponent_CommandCallback(const char* componentName, c
     return result;
 }
 
-void PnP_TempControlComponent_UpdatedPropertyCallback(
+int PnP_TempControlComponent_UpdatedPropertyCallback(
     IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, 
     const unsigned char* payload,
     size_t payloadLength,
@@ -394,6 +320,7 @@ void PnP_TempControlComponent_UpdatedPropertyCallback(
     }
 
     IoTHubClient_Deserialize_Properties_DestroyIterator(propertyIterator);
+    return 0;
 }
 
 
@@ -461,43 +388,115 @@ static void PnP_TempControlComponent_ReportSerialNumber_Property(IOTHUB_DEVICE_C
 }
 
 //
-// CreateDeviceClientAndAllocateComponents allocates the IOTHUB_DEVICE_CLIENT_LL_HANDLE the application will use along with thermostat components
-// 
-static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateDeviceClientAndAllocateComponents(void)
+// CreateDeviceClientLLHandle performs actual handle creation (but nothing more), depending
+// on whether connection strings or DPS is used.
+//
+static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateDeviceClientLLHandle(void)
+{
+#ifdef USE_PROV_MODULE_FULL
+    if (g_pnpDeviceConfiguration.securityType == PNP_CONNECTION_SECURITY_TYPE_DPS)
+    {
+        return PnP_CreateDeviceClientLLHandle_ViaDps(&g_pnpDeviceConfiguration);
+    }
+#endif
+    return IoTHubDeviceClient_LL_CreateFromConnectionString(g_pnpDeviceConfiguration.u.connectionString, MQTT_Protocol);
+}
+
+//
+// CreateAndConfigureDeviceClientHandleForPnP creates a IOTHUB_DEVICE_CLIENT_LL_HANDLE for this application, setting its
+// ModelId along with various callbacks.
+//
+static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateAndConfigureDeviceClientHandleForPnP(void)
 {
     IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient = NULL;
-    IOTHUB_CLIENT_RESULT clientResult;
+    IOTHUB_CLIENT_RESULT iothubClientResult;
+    bool urlAutoEncodeDecode = true;
+    int iothubInitResult;
     bool result;
 
-    g_pnpDeviceConfiguration.enableTracing = g_hubClientTraceEnabled;
-    g_pnpDeviceConfiguration.modelId = g_temperatureControllerModelId;
+    // Before invoking any IoTHub Device SDK functionality, IoTHub_Init must be invoked.
+    if ((iothubInitResult = IoTHub_Init()) != 0)
+    {
+        LogError("Failure to initialize client.  Error=%d", iothubInitResult);
+        result = false;
+    }
+    // Create the deviceClient.
+    else if ((deviceClient = CreateDeviceClientLLHandle()) == NULL)
+    {
+        LogError("Failure creating IotHub client.  Hint: Check your connection string or DPS configuration");
+        result = false;
+    }
+    // Sets verbosity level.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceClient, OPTION_LOG_TRACE, &g_hubClientTraceEnabled)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to set logging option, error=%d", iothubClientResult);
+        result = false;
+    }
+    // Sets the name of ModelId for this PnP device.
+    // This *MUST* be set before the client is connected to IoTHub.  We do not automatically connect when the 
+    // handle is created, but will implicitly connect to subscribe for command and property callbacks below.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceClient, OPTION_MODEL_ID, g_temperatureControllerModelId)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to set the ModelID, error=%d", iothubClientResult);
+        result = false;
+    }
+    // Enabling auto url encode will have the underlying SDK perform URL encoding operations automatically for telemetry message properties.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceClient, OPTION_AUTO_URL_ENCODE_DECODE, &urlAutoEncodeDecode)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to set auto Url encode option, error=%d", iothubClientResult);
+        result = false;
+    }
+#ifdef SET_TRUSTED_CERT_IN_SAMPLES
+    // Setting the Trusted Certificate.  This is only necessary on systems without built in certificate stores.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceClient, OPTION_TRUSTED_CERT, certificates)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to set the trusted cert, error=%d", iothubClientResult);
+        result = false;
+    }
+#endif // SET_TRUSTED_CERT_IN_SAMPLES
+    // Sets the callback function that processes incoming commands.  Note that this will implicitly initiate a connection to IoT Hub.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SubscribeToCommands(deviceClient, PnP_TempControlComponent_CommandCallback, NULL)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to subscribe for commands, error=%d", iothubClientResult);
+        result = false;
+    }
+    // Retrieve all properties for the device and also subscribe for any future writable property update changes.
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_GetPropertiesAndSubscribeToUpdatesAsync(deviceClient, PnP_TempControlComponent_UpdatedPropertyCallback, (void*)deviceClient)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("Unable to subscribe and get properties, error=%d", iothubClientResult);
+        result = false;
+    }
+    else
+    {
+        result = true;
+    }
 
-    if (GetConnectionSettingsFromEnvironment(&g_pnpDeviceConfiguration) == false)
+    if (result == false)
     {
-        LogError("Cannot read required environment variable(s)");
-        result = false;
+        IoTHubDeviceClient_LL_Destroy(deviceClient);
+        deviceClient = NULL;
     }
-    else if ((deviceClient = TempControl_CreateDeviceClientLLHandle(&g_pnpDeviceConfiguration)) == NULL)
+
+    if ((result == false) &&  (iothubInitResult == 0))
     {
-        LogError("Failure creating IotHub device client");
-        result = false;
+        IoTHub_Deinit();
     }
-    // Subscribes for incoming commands from IoT Hub and when they arrive, have them routed to PnP_TempControlComponent_CommandCallback.
-    else if ((clientResult = IoTHubDeviceClient_LL_SubscribeToCommands(deviceClient, PnP_TempControlComponent_CommandCallback, NULL)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("IoTHubDeviceClient_LL_PnP_SetCommandCallback failed, result=%d", clientResult);
-        result = false;
-    }
-    // Retrieves all properties and also subscribes to property updates, routing them all to PnP_TempControlComponent_UpdatedPropertyCallback.
-    else if ((clientResult = IoTHubDeviceClient_LL_GetPropertiesAndSubscribeToUpdatesAsync(deviceClient, PnP_TempControlComponent_UpdatedPropertyCallback, (void*)deviceClient)) != IOTHUB_CLIENT_OK)
-    {
-        LogError("IoTHubDeviceClient_PnP_SetPropertyCallback failed, result=%d", clientResult);
-        result = false;
-    }
+
+    return deviceClient;
+}
+
+//
+// AllocateThermostatComponents allocates subcomponents of this module.  These are implemented in separate .c 
+// files and the thermostat components have handles to simulate how a more complex PnP device might be composed.
+// 
+static bool AllocateThermostatComponents(void)
+{
+    bool result;
+
     // PnP_ThermostatComponent_CreateHandle creates handles to process the subcomponents of Temperature Controller (namely
     // thermostat1 and thermostat2) that require state and need to process callbacks from IoT Hub.  The other component,
     // deviceInfo, is so simple (one time send of data) as to not need a handle.
-    else if ((g_thermostatHandle1 = PnP_ThermostatComponent_CreateHandle(g_thermostatComponent1Name)) == NULL)
+    if ((g_thermostatHandle1 = PnP_ThermostatComponent_CreateHandle(g_thermostatComponent1Name)) == NULL)
     {
         LogError("Unable to create component handle for %s", g_thermostatComponent1Name);
         result = false;
@@ -514,26 +513,31 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateDeviceClientAndAllocateComponents(vo
 
     if (result == false)
     {
-        PnP_ThermostatComponent_Destroy(g_thermostatHandle2);
         PnP_ThermostatComponent_Destroy(g_thermostatHandle1);
-        if (deviceClient != NULL)
-        {
-            IoTHubDeviceClient_LL_Destroy(deviceClient);
-            IoTHub_Deinit();
-            deviceClient = NULL;
-        }
+        PnP_ThermostatComponent_Destroy(g_thermostatHandle2);
     }
 
-    return deviceClient;
+    return result;
 }
 
 int main(void)
 {
     IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient = NULL;
 
-    if ((deviceClient = CreateDeviceClientAndAllocateComponents()) == NULL)
+    g_pnpDeviceConfiguration.enableTracing = g_hubClientTraceEnabled;
+    g_pnpDeviceConfiguration.modelId = g_temperatureControllerModelId;
+
+    if (GetConnectionSettingsFromEnvironment(&g_pnpDeviceConfiguration) == false)
+    {
+        LogError("Cannot read required environment variable(s)");
+    }
+    else if ((deviceClient = CreateAndConfigureDeviceClientHandleForPnP()) == NULL)
     {
         LogError("Failure creating IotHub device client");
+    }
+    else if (AllocateThermostatComponents() == false)
+    {
+        LogError("Failure allocating thermostat components");
     }
     else
     {
