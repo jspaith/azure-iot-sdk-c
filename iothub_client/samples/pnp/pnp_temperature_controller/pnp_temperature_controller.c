@@ -136,7 +136,7 @@ static int PnP_TempControlComponent_InvokeRebootCommand(JSON_Value* rootValue)
     {
         // See caveats section in ../readme.md; we don't actually respect the delay value to keep the sample simple.
         int delayInSeconds = (int)json_value_get_number(rootValue);
-        LogInfo("Temperature controller 'reboot' command invoked with delay=%d seconds", delayInSeconds);
+        LogInfo("Temperature controller 'reboot' command invoked with delay %d seconds", delayInSeconds);
         result = 200;
     }
     
@@ -198,6 +198,8 @@ static int PnP_TempControlComponent_CommandCallback(const char* componentName, c
     JSON_Value* rootValue = NULL;
     int result;
 
+    LogInfo("Device command %s arrived for component %s", commandName, (componentName == NULL) ? "" : componentName);
+
     *response = NULL;
     *responseSize = 0;
 
@@ -215,7 +217,6 @@ static int PnP_TempControlComponent_CommandCallback(const char* componentName, c
     {
         if (componentName != NULL)
         {
-            LogInfo("Received PnP command for component=%s, command=%s", componentName, commandName);
             if (strcmp(componentName, g_thermostatComponent1Name) == 0)
             {
                 result = PnP_ThermostatComponent_ProcessCommand(g_thermostatHandle1, commandName, rootValue, response, responseSize);
@@ -226,20 +227,19 @@ static int PnP_TempControlComponent_CommandCallback(const char* componentName, c
             }
             else
             {
-                LogError("PnP component=%s is not supported by TemperatureController", componentName);
+                LogError("Component %s is not supported by TemperatureController", componentName);
                 result = 404;
             }
         }
         else
         {
-            LogInfo("Received PnP command for TemperatureController component, command=%s", commandName);
             if (strcmp(commandName, g_rebootCommand) == 0)
             {
                 result = PnP_TempControlComponent_InvokeRebootCommand(rootValue);
             }
             else
             {
-                LogError("PnP command=s%s is not supported by TemperatureController", commandName);
+                LogError("Command %s is not supported by TemperatureController", commandName);
                 result = 404;
             }
         }
@@ -300,7 +300,7 @@ int PnP_TempControlComponent_UpdatedPropertyCallback(
             
             if (property.componentName == NULL) 
             {   
-                LogError("Property=%s arrived for TemperatureControl component itself.  This does not support properties on it (all properties are on subcomponents)", property.componentName);
+                LogError("Property %s arrived for TemperatureControl component itself.  This does not support properties on it (all properties are on subcomponents)", property.componentName);
             }
             else if (strcmp(property.componentName, g_thermostatComponent1Name) == 0)
             {
@@ -312,7 +312,7 @@ int PnP_TempControlComponent_UpdatedPropertyCallback(
             }
             else
             {
-                LogError("Component=%s is not implemented by the TemperatureController", property.componentName);
+                LogError("Component %s is not implemented by the TemperatureController", property.componentName);
             }
             
             IoTHubClient_Deserialize_Properties_DestroyProperty(&property);
@@ -558,8 +558,8 @@ int main(void)
             if ((numberOfIterations % g_sendTelemetryPollInterval) == 0)
             {
                 PnP_TempControlComponent_SendWorkingSet(deviceClient);
-                PnP_ThermostatComponent_SendTelemetry(g_thermostatHandle1, deviceClient);
-                PnP_ThermostatComponent_SendTelemetry(g_thermostatHandle2, deviceClient);
+                PnP_ThermostatComponent_SendCurrentTemperature(g_thermostatHandle1, deviceClient);
+                PnP_ThermostatComponent_SendCurrentTemperature(g_thermostatHandle2, deviceClient);
             }
 
             IoTHubDeviceClient_LL_DoWork(deviceClient);
@@ -568,8 +568,8 @@ int main(void)
         }
 
         // Free the memory allocated to track simulated thermostat.
-        PnP_ThermostatComponent_Destroy(g_thermostatHandle2);
         PnP_ThermostatComponent_Destroy(g_thermostatHandle1);
+        PnP_ThermostatComponent_Destroy(g_thermostatHandle2);
 
         // Clean up the iothub sdk handle
         IoTHubDeviceClient_LL_Destroy(deviceClient);

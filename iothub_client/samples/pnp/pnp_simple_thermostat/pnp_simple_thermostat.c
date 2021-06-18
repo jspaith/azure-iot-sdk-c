@@ -235,6 +235,8 @@ static void SetEmptyCommandResponse(unsigned char** response, size_t* responseSi
 static int Thermostat_CommandCallback(const char* componentName, const char* commandName, const unsigned char* payload, size_t size, const char* payloadContentType, unsigned char** response, size_t* responseSize, void* userContextCallback)
 {
     (void)userContextCallback;
+    // payloadContentType is guaranteed to be "application/json".  Future versions of the IoT Hub SDK might enable additional
+    // values, but it will require explicit opt-in from the application.
     (void)payloadContentType; 
 
     char* jsonStr = NULL;
@@ -473,7 +475,7 @@ static int Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE pay
             // back to IoT Hub.
             if (property.componentName != NULL)
             {   
-                LogError("Property=%s arrived for non-root component %s.  This model does not support such properties", property.name, property.componentName);
+                LogError("Property %s arrived for non-root component %s.  This model does not support such properties", property.name, property.componentName);
             }
             else if (strcmp(property.componentName, g_targetTemperaturePropertyName) == 0)
             {
@@ -481,7 +483,7 @@ static int Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE pay
             }
             else
             {
-                LogError("Property=%s is not part of the thermostat model and will be ignored", property.name);
+                LogError("Property %s is not part of the thermostat model and will be ignored", property.name);
             }
             
             IoTHubClient_Deserialize_Properties_DestroyProperty(&property);
@@ -548,7 +550,7 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateAndConfigureDeviceClientHandleForPnP
     // Before invoking any IoTHub Device SDK functionality, IoTHub_Init must be invoked.
     if ((iothubInitResult = IoTHub_Init()) != 0)
     {
-        LogError("Failure to initialize client.  Error=%d", iothubInitResult);
+        LogError("Failure to initialize client, error=%d", iothubInitResult);
         result = false;
     }
     // Create the deviceClient.

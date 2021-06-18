@@ -119,7 +119,7 @@ PNP_THERMOSTAT_COMPONENT_HANDLE PnP_ThermostatComponent_CreateHandle(const char*
 
     if (strlen(componentName) > 64)
     {
-        LogError("componentName=%s is too long.  Maximum length is=%d", componentName, 64);
+        LogError("componentName %s is too long.  Maximum length is %d", componentName, 64);
         thermostatComponent = NULL;
     }
     // On initial invocation, store the UTC time into g_programStartTime global.
@@ -212,7 +212,7 @@ int PnP_ThermostatComponent_ProcessCommand(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
 
     if (strcmp(pnpCommandName, g_getMaxMinReport) != 0)
     {
-        LogError("PnP command=%s is not supported on thermostat component", pnpCommandName);
+        LogError("Command %s is not supported on thermostat component", pnpCommandName);
         result = 404;
     }
     // See caveats section in ../readme.md; we don't actually respect this sinceStr to keep the sample simple,
@@ -224,12 +224,12 @@ int PnP_ThermostatComponent_ProcessCommand(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
     }
     else if (BuildMaxMinCommandResponse(pnpThermostatComponent, response, responseSize) == false)
     {
-        LogError("Unable to build response for component=%s", pnpThermostatComponent->componentName);
+        LogError("Unable to build response for component %s", pnpThermostatComponent->componentName);
         result = 500;
     }
     else
     {
-        LogInfo("Returning success from command request for component=%s", pnpThermostatComponent->componentName);
+        LogInfo("Returning success from command request for component %s", pnpThermostatComponent->componentName);
         result = 200;
     }
 
@@ -301,7 +301,7 @@ static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermosta
     }
     else
     {
-        LogInfo("Sending acknowledgement of property to IoTHub for component=%s", pnpThermostatComponent->componentName);
+        LogInfo("Sending acknowledgement of property to IoTHub for component %s", pnpThermostatComponent->componentName);
     }
     IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
 }
@@ -336,7 +336,7 @@ void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOS
         }
         else
         {
-            LogInfo("Sending maximumTemperatureSinceLastReboot property to IoTHub for component=%s", pnpThermostatComponent->componentName);
+            LogInfo("Sending maximumTemperatureSinceLastReboot property to IoTHub for component %s", pnpThermostatComponent->componentName);
         }
         IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
     }
@@ -348,8 +348,7 @@ void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HAND
 
     if (strcmp(propertyName, g_targetTemperaturePropertyName) != 0)
     {
-        LogError("Property=%s was requested to be changed but is not part of the thermostat interface definition", propertyName);
-        SendTargetTemperatureResponse(pnpThermostatComponent, deviceClient, propertyValue, g_statusBadFormat, version, g_temperaturePropertyResponseDescriptionNotInt);
+        LogError("Property %s was requested to be changed but is not part of the thermostat interface definition", propertyName);
     }
     else
     {
@@ -358,10 +357,11 @@ void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HAND
         if ((propertyValue == next) || (targetTemperature == LONG_MAX) || (targetTemperature == LONG_MIN))
         {
             LogError("Property %s is not a valid integer", propertyValue);
+            SendTargetTemperatureResponse(pnpThermostatComponent, deviceClient, propertyValue, g_statusBadFormat, version, g_temperaturePropertyResponseDescriptionNotInt);
         }
         else
         {
-            LogInfo("Received targetTemperature=%f for component=%s", targetTemperature, pnpThermostatComponent->componentName);
+            LogInfo("Received targetTemperature %f for component %s", targetTemperature, pnpThermostatComponent->componentName);
             
             bool maxTempUpdated = false;
             UpdateTemperatureAndStatistics(pnpThermostatComponent, targetTemperature, &maxTempUpdated);
@@ -378,7 +378,7 @@ void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HAND
     }
 }
 
-void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
+void PnP_ThermostatComponent_SendCurrentTemperature(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
 {
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
     IOTHUB_MESSAGE_HANDLE messageHandle = NULL;

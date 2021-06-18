@@ -46,9 +46,9 @@ int PnP_ThermostatComponent_ProcessCommand(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
 void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient, const char* propertyName, const char* propertyValue, int version);
 
 //
-// PnP_ThermostatComponent_SendTelemetry sends telemetry indicating the current temperature of the thermostat.
+// PnP_ThermostatComponent_SendCurrentTemperature sends telemetry indicating the current temperature of the thermostat.
 //
-void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient);
+void PnP_ThermostatComponent_SendCurrentTemperature(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient);
 
 //
 // PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property sends a property indicating maxTempSinceLastReboot.  Since 
