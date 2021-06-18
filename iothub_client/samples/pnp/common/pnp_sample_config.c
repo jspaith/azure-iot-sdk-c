@@ -8,33 +8,33 @@
 #include "azure_c_shared_utility/xlogging.h"
 #include "pnp_sample_config.h"
 
-// Environment variable used to specify how app connects to hub and the two possible values
+// Environment variable used to specify how app connects to hub and the two possible values.
 static const char g_securityTypeEnvironmentVariable[] = "IOTHUB_DEVICE_SECURITY_TYPE";
 static const char g_securityTypeConnectionStringValue[] = "connectionString";
 static const char g_securityTypeDpsValue[] = "DPS";
 
-// Environment variable used to specify this application's connection string
+// Environment variable used to specify this application's connection string.
 static const char g_connectionStringEnvironmentVariable[] = "IOTHUB_DEVICE_CONNECTION_STRING";
 
 #ifdef USE_PROV_MODULE_FULL
-// Environment variable used to specify this application's DPS id scope
+// Environment variable used to specify this application's DPS id scope.
 static const char g_dpsIdScopeEnvironmentVariable[] = "IOTHUB_DEVICE_DPS_ID_SCOPE";
 
-// Environment variable used to specify this application's DPS device id
+// Environment variable used to specify this application's DPS device id.
 static const char g_dpsDeviceIdEnvironmentVariable[] = "IOTHUB_DEVICE_DPS_DEVICE_ID";
 
-// Environment variable used to specify this application's DPS device key
+// Environment variable used to specify this application's DPS device key.
 static const char g_dpsDeviceKeyEnvironmentVariable[] = "IOTHUB_DEVICE_DPS_DEVICE_KEY";
 
-// Environment variable used to optionally specify this application's DPS id scope
+// Environment variable used to optionally specify this application's DPS id scope.
 static const char g_dpsEndpointEnvironmentVariable[] = "IOTHUB_DEVICE_DPS_ENDPOINT";
 
-// Global provisioning endpoint for DPS if one is not specified via the environment
+// Global provisioning endpoint for DPS if one is not specified via the environment.
 static const char g_dps_DefaultGlobalProvUri[] = "global.azure-devices-provisioning.net";
 #endif
 
 //
-// GetConnectionStringFromEnvironment retrieves the connection string based on environment variable
+// GetConnectionStringFromEnvironment retrieves the connection string based on environment variable.
 //
 static bool GetConnectionStringFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration)
 {
@@ -56,7 +56,7 @@ static bool GetConnectionStringFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDevi
 
 //
 // GetDpsFromEnvironment retrieves DPS configuration for a symmetric key based connection
-// from environment variables
+// from environment variables.
 //
 static bool GetDpsFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration)
 {

@@ -50,7 +50,7 @@ typedef struct PNP_DEVICE_CONFIGURATION_TAG
 
 #endif /* PNP_SAMPLE_CONFIG */
 //
-// GetConfigurationFromEnvironment reads how to connect to the IoT Hub (using 
+// GetConfigurationFromEnvironment determines how to connect to the IoT Hub (using 
 // either a connection string or a DPS symmetric key) from the environment.
 //
 bool GetConnectionSettingsFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration);

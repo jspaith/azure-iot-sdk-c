@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+// Helper routines for PnP based samples to interact with Device Provisioning Service
+
 #ifndef PNP_DPS_LL_H
 #define PNP_DPS_LL_H
 
@@ -8,6 +10,8 @@
 #include "pnp_sample_config.h"
 
 #ifndef USE_PROV_MODULE_FULL
+// DPS is not brought in all configurations of the SDK.  If you hit this error,
+// rerun cmake with the flags <-Duse_prov_client=ON -Dhsm_type_symm_key=ON -Drun_e2e_tests=OFF>
 #error "Missing cmake flag for DPS"
 #endif
 

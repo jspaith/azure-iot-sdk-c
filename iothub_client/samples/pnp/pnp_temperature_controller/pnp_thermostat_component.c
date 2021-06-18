@@ -279,7 +279,7 @@ static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermosta
     // what current version of the writable property the device is currently using, as the server may update the property even when the device
     // is offline.
     temperatureProperty.ackVersion = version;
-    // Result of request, which maps to HTTP status code.  For sample we'll always indicate success.
+    // Result of request, which maps to HTTP status code.
     temperatureProperty.result = responseStatus;
     temperatureProperty.name = desiredTempString;
     temperatureProperty.value = targetTemperatureAsString;
@@ -371,7 +371,7 @@ void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HAND
             
             if (maxTempUpdated)
             {
-                // If the Maximum temperature has been updated, we also report this as a property.
+                // If the maximum temperature has been updated, we also report this as a property.
                 PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(pnpThermostatComponent, deviceClient);
             }
         }
@@ -383,7 +383,7 @@ void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
     IOTHUB_MESSAGE_HANDLE messageHandle = NULL;
     IOTHUB_MESSAGE_RESULT messageResult;
-    IOTHUB_CLIENT_RESULT iothubResult;
+    IOTHUB_CLIENT_RESULT iothubClientResult;
 
     char temperatureStringBuffer[CURRENT_TEMPERATURE_BUFFER_SIZE];
 
@@ -407,9 +407,9 @@ void PnP_ThermostatComponent_SendTelemetry(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
     {
         LogError("IoTHubMessage_SetContentEncodingSystemProperty failed, error=%d", messageResult);
     }
-    else if ((iothubResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClient, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClient, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to send telemetry message, error=%d", iothubResult);
+        LogError("Unable to send telemetry message, error=%d", iothubClientResult);
     }
 
     IoTHubMessage_Destroy(messageHandle);

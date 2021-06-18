@@ -130,7 +130,7 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE AllocateDeviceClientHandle(const PNP_DEVIC
 static IOTHUB_DEVICE_CLIENT_LL_HANDLE TempControl_CreateDeviceClientLLHandle(const PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration)
 {
     IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceHandle = NULL;
-    IOTHUB_CLIENT_RESULT iothubResult;
+    IOTHUB_CLIENT_RESULT iothubClientResult;
     bool urlAutoEncodeDecode = true;
     int iothubInitResult;
     bool result;
@@ -147,30 +147,30 @@ static IOTHUB_DEVICE_CLIENT_LL_HANDLE TempControl_CreateDeviceClientLLHandle(con
         result = false;
     }
     // Sets verbosity level
-    else if ((iothubResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_LOG_TRACE, &pnpDeviceConfiguration->enableTracing)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_LOG_TRACE, &pnpDeviceConfiguration->enableTracing)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to set logging option, error=%d", iothubResult);
+        LogError("Unable to set logging option, error=%d", iothubClientResult);
         result = false;
     }
     // Sets the name of ModelId for this PnP device.
     // This *MUST* be set before the client is connected to IoTHub.  We do not automatically connect when the 
     // handle is created, but will implicitly connect to subscribe for command and property callbacks below.
-    else if ((iothubResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_MODEL_ID, pnpDeviceConfiguration->modelId)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_MODEL_ID, pnpDeviceConfiguration->modelId)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to set the ModelID, error=%d", iothubResult);
+        LogError("Unable to set the ModelID, error=%d", iothubClientResult);
         result = false;
     }
     // Enabling auto url encode will have the underlying SDK perform URL encoding operations automatically.
-    else if ((iothubResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_AUTO_URL_ENCODE_DECODE, &urlAutoEncodeDecode)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_AUTO_URL_ENCODE_DECODE, &urlAutoEncodeDecode)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to set auto Url encode option, error=%d", iothubResult);
+        LogError("Unable to set auto Url encode option, error=%d", iothubClientResult);
         result = false;
     }
 #ifdef SET_TRUSTED_CERT_IN_SAMPLES
     // Setting the Trusted Certificate.  This is only necessary on systems without built in certificate stores.
-    else if ((iothubResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_TRUSTED_CERT, certificates)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SetOption(deviceHandle, OPTION_TRUSTED_CERT, certificates)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to set the trusted cert, error=%d", iothubResult);
+        LogError("Unable to set the trusted cert, error=%d", iothubClientResult);
         result = false;
     }
 #endif // SET_TRUSTED_CERT_IN_SAMPLES
@@ -337,11 +337,13 @@ void PnP_TempControlComponent_UpdatedPropertyCallback(
     void* userContextCallback)
 {
     IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient = (IOTHUB_DEVICE_CLIENT_LL_HANDLE)userContextCallback;
-    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE propertyIterator;
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE propertyIterator = NULL;
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY property;
     int propertiesVersion;
     IOTHUB_CLIENT_RESULT clientResult;
 
+    // The properties arrive as a raw JSON buffer (which is not null-terminated).  IoTHubClient_Deserialize_Properties_CreateIterator parses 
+    // this into a more convenient form to allow property-by-property enumeration over the updated properties.
     if ((clientResult = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, payload, payloadLength, g_modeledComponents, g_numModeledComponents, &propertyIterator, &propertiesVersion)) != IOTHUB_CLIENT_OK)
     {
         LogError("IoTHubClient_Deserialize_Properties failed, error=%d", clientResult);
@@ -404,7 +406,7 @@ void PnP_TempControlComponent_SendWorkingSet(IOTHUB_DEVICE_CLIENT_LL_HANDLE devi
 {
     IOTHUB_MESSAGE_HANDLE messageHandle = NULL;
     IOTHUB_MESSAGE_RESULT messageResult;
-    IOTHUB_CLIENT_RESULT iothubResult;
+    IOTHUB_CLIENT_RESULT iothubClientResult;
     char workingSetTelemetryPayload[64];
 
     int workingSet = g_workingSetMinimum + (rand() % g_workingSetRandomModulo);
@@ -425,9 +427,9 @@ void PnP_TempControlComponent_SendWorkingSet(IOTHUB_DEVICE_CLIENT_LL_HANDLE devi
     {
         LogError("IoTHubMessage_SetContentEncodingSystemProperty failed, error=%d", messageResult);
     }
-    else if ((iothubResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClient, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendTelemetryAsync(deviceClient, messageHandle, NULL, NULL)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to send telemetry message, error=%d", iothubResult);
+        LogError("Unable to send telemetry message, error=%d", iothubClientResult);
     }
 
     IoTHubMessage_Destroy(messageHandle);
@@ -438,21 +440,21 @@ void PnP_TempControlComponent_SendWorkingSet(IOTHUB_DEVICE_CLIENT_LL_HANDLE devi
 //
 static void PnP_TempControlComponent_ReportSerialNumber_Property(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
 {
-    IOTHUB_CLIENT_RESULT iothubClientResult;
+    IOTHUB_CLIENT_RESULT clientResult;
     IOTHUB_CLIENT_REPORTED_PROPERTY property = { IOTHUB_CLIENT_REPORTED_PROPERTY_VERSION_1, g_serialNumberPropertyName, g_serialNumberPropertyValue };
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength;
 
     // The first step of reporting properties is to serialize it into an IoT Hub friendly format.  You can do this by either
     // implementing the PnP convention for building up the correct JSON or more simply to use IoTHubClient_Serialize_ReportedProperties.
-    if ((iothubClientResult = IoTHubClient_Serialize_ReportedProperties(&property, 1, NULL, &serializedProperties, &serializedPropertiesLength)) != IOTHUB_CLIENT_OK)
+    if ((clientResult = IoTHubClient_Serialize_ReportedProperties(&property, 1, NULL, &serializedProperties, &serializedPropertiesLength)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to serialize reported state, error=%d", iothubClientResult);
+        LogError("Unable to serialize reported state, error=%d", clientResult);
     }
     // The output of IoTHubClient_Serialize_ReportedProperties is sent to IoTHubDeviceClient_LL_SendPropertiesAsync to perform network I/O.
-    else if ((iothubClientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClient, serializedProperties, serializedPropertiesLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
+    else if ((clientResult = IoTHubDeviceClient_LL_SendPropertiesAsync(deviceClient, serializedProperties, serializedPropertiesLength, NULL, NULL)) != IOTHUB_CLIENT_OK)
     {
-        LogError("Unable to send reported state, error=%d", iothubClientResult);
+        LogError("Unable to send reported state, error=%d", clientResult);
     }
 
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);

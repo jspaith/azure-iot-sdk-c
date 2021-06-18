@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "iothub_device_client_ll.h"
 #include "iothubtransportmqtt.h"
 #include "pnp_sample_config.h"
 
@@ -36,14 +35,14 @@ typedef enum PNP_DPS_REGISTRATION_STATUS_TAG
 PNP_DPS_REGISTRATION_STATUS g_pnpDpsRegistrationStatus;
 
 // Maximum amount of times we'll poll for DPS registration being ready.  Note that even though DPS works off of callbacks,
-// the main() loop itself blocks 
+// the main() loop itself blocks to keep the sample more straightforward.
 static const int g_dpsRegistrationMaxPolls = 60;
-// Amount to sleep between querying state from DPS registration loop
+// Amount to sleep between querying state from DPS registration loop.
 static const int g_dpsRegistrationPollSleep = 1000;
 
-// IoT Hub for this device as determined by the DPS client runtime
+// IoT Hub for this device as determined by the DPS client runtime.
 static char* g_dpsIothubUri;
-// DeviceId for this device as determined by the DPS client runtime
+// DeviceId for this device as determined by the DPS client runtime.
 static char* g_dpsDeviceId;
 
 //
@@ -86,12 +85,7 @@ IOTHUB_DEVICE_CLIENT_LL_HANDLE PnP_CreateDeviceClientLLHandle_ViaDps(const PNP_D
     LogInfo("Initiating DPS client to retrieve IoT Hub connection information");
     g_pnpDpsRegistrationStatus = PNP_DPS_REGISTRATION_NOT_COMPLETE;
 
-    if ((provDeviceResult = Prov_Client_Create_ModelIdPayload(pnpDeviceConfiguration->modelId, &modelIdPayload)) != PROV_DEVICE_RESULT_OK)
-    {
-        LogError("Allocating custom DPS payload for modelId failed, error=%d.", provDeviceResult);
-        result = false;
-    }
-    else if ((prov_dev_set_symmetric_key_info(pnpDeviceConfiguration->u.dpsConnectionAuth.deviceId, pnpDeviceConfiguration->u.dpsConnectionAuth.deviceKey) != 0))
+    if ((prov_dev_set_symmetric_key_info(pnpDeviceConfiguration->u.dpsConnectionAuth.deviceId, pnpDeviceConfiguration->u.dpsConnectionAuth.deviceKey) != 0))
     {
         LogError("prov_dev_set_symmetric_key_info failed.");
         result = false;
@@ -111,8 +105,14 @@ IOTHUB_DEVICE_CLIENT_LL_HANDLE PnP_CreateDeviceClientLLHandle_ViaDps(const PNP_D
         LogError("Setting provisioning tracing on failed, error=%d", provDeviceResult);
         result = false;
     }
-    // This step indicates the ModelId of the device to DPS.  This allows the service to perform custom operations,
-    // such as allocating a different IoT Hub to devices based on their ModelId.
+    // The next steps indicate the ModelId of the device to DPS.  This allows the service to perform custom operations,
+    // such as allocating a different IoT Hub to devices based on their ModelId.  
+    // When connecting to IoT Central with DPS, this step is required.
+    else if ((provDeviceResult = Prov_Client_Create_ModelIdPayload(pnpDeviceConfiguration->modelId, &modelIdPayload)) != PROV_DEVICE_RESULT_OK)
+    {
+        LogError("Allocating custom DPS payload for modelId failed, error=%d.", provDeviceResult);
+        result = false;
+    }
     else if ((provDeviceResult = Prov_Device_LL_Set_Provisioning_Payload(provDeviceHandle, modelIdPayload)) != PROV_DEVICE_RESULT_OK)
     {
         LogError("Failed setting provisioning data, error=%d", provDeviceResult);
@@ -127,13 +127,15 @@ IOTHUB_DEVICE_CLIENT_LL_HANDLE PnP_CreateDeviceClientLLHandle_ViaDps(const PNP_D
     {
         for (int i = 0; (i < g_dpsRegistrationMaxPolls) && (g_pnpDpsRegistrationStatus == PNP_DPS_REGISTRATION_NOT_COMPLETE); i++)
         {
+            // Because we are using the LL (lower-layer), the application itself must manually poll/query status periodically
+            // via Prov_Device_LL_DoWork.  On success or failure from the service, provisioningRegisterCallback will be invoked.
             Prov_Device_LL_DoWork(provDeviceHandle);
             ThreadAPI_Sleep(g_dpsRegistrationPollSleep);
         }
 
         if (g_pnpDpsRegistrationStatus == PNP_DPS_REGISTRATION_SUCCEEDED)
         {
-            LogInfo("DPS successfully registered.  Continuing on to creation of IoTHub device client handle.");
+            LogInfo("DPS successfully registered.  Continuing on to creation of IoT Hub device client handle.");
             result = true;
         }
         else if (g_pnpDpsRegistrationStatus == PNP_DPS_REGISTRATION_NOT_COMPLETE)
@@ -149,8 +151,8 @@ IOTHUB_DEVICE_CLIENT_LL_HANDLE PnP_CreateDeviceClientLLHandle_ViaDps(const PNP_D
     }
 
     // Destroy the provisioning handle here, instead of the typical convention of doing so at the end of the function.
-    // We do so because this handle is no longer required and because on devices with limited amounts of memory
-    // cannot keep this open and have a device handle (via IoTHubDeviceClient_LL_CreateFromDeviceAuth below) at the same time.
+    // It is no longer required.  On very constrained devices, leaving it open while calling 
+    // IoTHubDeviceClient_LL_CreateFromDeviceAuth introduces unneeded memory pressure.
     if (provDeviceHandle != NULL)
     {
         Prov_Device_LL_Destroy(provDeviceHandle);
