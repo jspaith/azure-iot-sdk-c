@@ -28,6 +28,8 @@ extern "C"
 #define CLIENT_DEVICE_TYPE_PREFIX "iothubclient"
 #define CLIENT_DEVICE_BACKSLASH "/"
 
+#define CLIENT_DEVICE_PAYLOAD_TYPE_JSON "application/json"
+
 typedef bool(*IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC_EX)(MESSAGE_CALLBACK_INFO* messageData, void* userContextCallback);
 
 MOCKABLE_FUNCTION(, IOTHUB_CLIENT_RESULT, IoTHubClientCore_LL_SetMessageCallback_Ex, IOTHUB_CLIENT_CORE_LL_HANDLE, iotHubClientHandle, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC_EX, messageCallback, void*, userContextCallback);

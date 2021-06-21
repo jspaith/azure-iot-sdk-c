@@ -27,8 +27,6 @@
 #define DO_WORK_FREQ_DEFAULT 1
 #define DO_WORK_MAXIMUM_ALLOWED_FREQUENCY 100
 
-#define COMMAND_PAYLOAD_TYPE_JSON "application/json"
-
 struct IOTHUB_QUEUE_CONTEXT_TAG;
 
 typedef struct IOTHUB_CLIENT_CORE_INSTANCE_TAG
@@ -399,33 +397,6 @@ static int iothub_ll_device_method_callback(const char* method_name, const unsig
     return result;
 }
 
-static int iothub_ll_command_callback(const char* method_name, const unsigned char* payload, size_t size, METHOD_HANDLE method_id, void* userContextCallback)
-{
-    int result;
-    /* Codes_SRS_IOTHUB_MQTT_TRANSPORT_07_001: [ if userContextCallback is NULL, IOTHUB_CLIENT_INBOUND_DEVICE_METHOD_CALLBACK shall return a nonNULL value. ] */
-    if (userContextCallback == NULL)
-    {
-        LogError("invalid parameter userContextCallback(NULL)");
-        result = MU_FAILURE;
-    }
-    else
-    {
-        IOTHUB_QUEUE_CONTEXT* queue_context = (IOTHUB_QUEUE_CONTEXT*)userContextCallback;
-
-        USER_CALLBACK_INFO queue_cb_info;
-        queue_cb_info.type = CALLBACK_TYPE_COMMAND;
-
-        result = make_method_calback_queue_context(&queue_cb_info, method_name, payload, size, method_id, queue_context);
-        if (result != 0)
-        {
-            LogError("construction of method calback queue context failed");
-            result = MU_FAILURE;
-        }
-    }
-    return result;
-}
-
-
 static int iothub_ll_inbound_device_method_callback(const char* method_name, const unsigned char* payload, size_t size, METHOD_HANDLE method_id, void* userContextCallback)
 {
     int result;
@@ -441,6 +412,34 @@ static int iothub_ll_inbound_device_method_callback(const char* method_name, con
 
         USER_CALLBACK_INFO queue_cb_info;
         queue_cb_info.type = CALLBACK_TYPE_INBOUD_DEVICE_METHOD;
+
+        result = make_method_calback_queue_context(&queue_cb_info, method_name, payload, size, method_id, queue_context);
+        if (result != 0)
+        {
+            LogError("construction of method calback queue context failed");
+            result = MU_FAILURE;
+        }
+    }
+    return result;
+}
+
+// iothub_ll_command_callback is invoked as the callback by the _LL_ layer that the convenience layer interfaces with.
+// We cannot directly call the application's callback function directly (because we have a lock held), so we queue up
+// the item to be processed later in dispatch_user_callbacks.
+static int iothub_ll_command_callback(const char* method_name, const unsigned char* payload, size_t size, METHOD_HANDLE method_id, void* userContextCallback)
+{
+    int result;
+    if (userContextCallback == NULL)
+    {
+        LogError("invalid parameter userContextCallback(NULL)");
+        result = MU_FAILURE;
+    }
+    else
+    {
+        IOTHUB_QUEUE_CONTEXT* queue_context = (IOTHUB_QUEUE_CONTEXT*)userContextCallback;
+
+        USER_CALLBACK_INFO queue_cb_info;
+        queue_cb_info.type = CALLBACK_TYPE_COMMAND;
 
         result = make_method_calback_queue_context(&queue_cb_info, method_name, payload, size, method_id, queue_context);
         if (result != 0)
@@ -623,13 +622,15 @@ static void invoke_application_command_callback(IOTHUB_CLIENT_CORE_HANDLE method
     const char* command_name = NULL;
     char* component_name = NULL;
 
+    // Parse the raw method_name into its constituent (optional) component_name and command_name parts.
     if (IoTHubClientCore_LL_ParseCommandTopic(method_name, &component_name, &command_name) != 0)
     {
-        LogError("Cannot parse command topic");
+        LogError("Cannot parse command/component name");
     }
     else
     {
-        int status = command_callback(component_name, command_name, payload, payload_len, COMMAND_PAYLOAD_TYPE_JSON, &payload_resp, &response_size, queued_cb->userContextCallback);
+        // Invoke the application's callback.
+        int status = command_callback(component_name, command_name, payload, payload_len, CLIENT_DEVICE_PAYLOAD_TYPE_JSON, &payload_resp, &response_size, queued_cb->userContextCallback);
         
         if (payload_resp && (response_size > 0))
         {
@@ -2124,9 +2125,10 @@ IOTHUB_CLIENT_RESULT IoTHubClientCore_SetDeviceMethodCallback(IOTHUB_CLIENT_CORE
     }
     else if (iotHubClientInstance->command_callback != NULL)
     {
-        // Check whether command_callback is specified since the 
+        // Check whether command_callback is specified.  An application can call IoTHubClientCore_SetDeviceMethodCallback multiple
+        // times, but they cannot mix and match calls between IoTHubClientCore_SetDeviceMethodCallback and IoTHubClientCore_SubscribeToCommands.
         result = IOTHUB_CLIENT_ERROR;
-        LogError("DeviceMethod callback already defined");
+        LogError("Command callback already defined");
     }
     else
     {
@@ -2185,9 +2187,10 @@ IOTHUB_CLIENT_RESULT IoTHubClientCore_SetDeviceMethodCallback_Ex(IOTHUB_CLIENT_C
     }
     else if (iotHubClientInstance->command_callback != NULL)
     {
-        // Check whether command_callback is specified since the 
+        // Check whether command_callback is specified.  An application can call IoTHubClientCore_SetDeviceMethodCallback_Ex multiple
+        // times, but they cannot mix and match calls between IoTHubClientCore_SetDeviceMethodCallback and IoTHubClientCore_SubscribeToCommands.
         result = IOTHUB_CLIENT_ERROR;
-        LogError("DeviceMethod callback already defined");
+        LogError("Command callback already defined");
     }
     else
     {
@@ -2222,6 +2225,9 @@ IOTHUB_CLIENT_RESULT IoTHubClientCore_SetDeviceMethodCallback_Ex(IOTHUB_CLIENT_C
     return result;
 }
 
+// IoTHubClientCore_SubscribeToCommands sets up application to receive PnP style commands.  At the underlying MQTT transport layer, this is almost identical 
+// to legacy device methods and hence much of the logic is the same as IoTHubClientCore_SetDeviceMethodCallback().  The differences in how to handle
+// the passed commandCallback (compared to IoTHubClientCore_SetDeviceMethodCallback) are processed much later.
 IOTHUB_CLIENT_RESULT IoTHubClientCore_SubscribeToCommands(IOTHUB_CLIENT_CORE_HANDLE iotHubClientHandle, IOTHUB_CLIENT_COMMAND_CALLBACK_ASYNC commandCallback, void* userContextCallback)
 {
     IOTHUB_CLIENT_RESULT result;
@@ -2244,6 +2250,8 @@ IOTHUB_CLIENT_RESULT IoTHubClientCore_SubscribeToCommands(IOTHUB_CLIENT_CORE_HAN
     }
     else if ((iotHubClientInstance->device_method_callback != NULL) || (iotHubClientInstance->inbound_device_method_callback != NULL))
     {
+        // Check whether the device method callback is specified.  An application can call IoTHubClientCore_SubscribeToCommands multiple
+        // times, but they cannot mix and match calls between IoTHubClientCore_SetDeviceMethodCallback and IoTHubClientCore_SubscribeToCommands.
         result = IOTHUB_CLIENT_ERROR;
         LogError("DeviceMethod callback already defined");
     }

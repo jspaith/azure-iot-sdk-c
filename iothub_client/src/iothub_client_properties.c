@@ -33,32 +33,31 @@ typedef struct IOTHUB_CLIENT_PROPERTY_ITERATOR_TAG {
     size_t currentPropertyIndex;
 } IOTHUB_CLIENT_PROPERTY_ITERATOR;
 
+// sprintf format strings and string constants for writing properties.
 static const char PROPERTY_FORMAT_COMPONENT_START[] = "{\"%s\":{\"__t\":\"c\", ";
 static const char PROPERTY_FORMAT_NAME_VALUE[] = "\"%s\":%s%s";
 static const char PROPERTY_FORMAT_WRITABLE_RESPONSE[] = "\"%s\":{\"value\":%s,\"ac\":%d,\"av\":%d}%s";
 static const char PROPERTY_FORMAT_WRITABLE_RESPONSE_WITH_DESCRIPTION[] = "{\"%s\":{\"value\":%s,\"ac\":%d,\"av\":%d,\"ad\":\"%s\"}%s";
-
 static const char PROPERTY_OPEN_BRACE[] = "{";
 static const char PROPERTY_CLOSE_BRACE[] = "}";
 static const char PROPERTY_COMMA[] = ",";
 static const char PROPERTY_EMPTY[] = "";
 
-
+// metadata in underlying device twin
 static const char TWIN_DESIRED_OBJECT_NAME[] = "desired";
 static const char TWIN_REPORTED_OBJECT_NAME[] = "reported";
 static const char TWIN_VERSION[] = "$version";
-
 // IoTHub adds a JSON field "__t":"c" into desired top-level JSON objects that represent components.  Without this marking, the object 
 // is treated as a property of the root component.
 static const char TWIN_COMPONENT_MARKER[] = "__t";
 
-// When building a list of properties, whether to append a "," or nothing depends on whether more items are coming.
-static const char* CommaIfNeeded(bool lastItem)
+// When writing a list of properties, whether to append a "," or nothing depends on whether more items are coming.
+static const char* AddCommaIfNeeded(bool lastItem)
 {
     return lastItem ? PROPERTY_EMPTY : PROPERTY_COMMA;
 }
 
-// After builder functions have successfully invoked snprintf, update our traversal pointer and remaining lengths.
+// AdvanceCountersAfterWrite updates the traversal pointer and lengths after snprintf'ng JSON
 static void AdvanceCountersAfterWrite(size_t currentOutputBytes, char** currentWrite, size_t* requiredBytes, size_t* remainingBytes)
 {
     // The number of bytes to be required is always updated by number the snprintf wrote to.
@@ -72,8 +71,8 @@ static void AdvanceCountersAfterWrite(size_t currentOutputBytes, char** currentW
     }
 }
 
-// Adds opening brace for JSON to be generated, either a simple "{" or more complex format if componentName is specified.
-static size_t BuildOpeningBrace(const char* componentName, char* currentWrite, size_t remainingBytes)
+// WriteOpeningBrace adds opening brace for JSON to be generated, either a simple "{" or more complex format if componentName is specified.
+static size_t WriteOpeningBrace(const char* componentName, char* currentWrite, size_t remainingBytes)
 {
     size_t currentOutputBytes;
 
@@ -81,7 +80,7 @@ static size_t BuildOpeningBrace(const char* componentName, char* currentWrite, s
     {
         if ((currentOutputBytes = snprintf(currentWrite, remainingBytes, PROPERTY_FORMAT_COMPONENT_START, componentName)) < 0)
         {
-            LogError("Cannot build properites string");
+            LogError("Cannot write properites string");
             return (size_t)-1;
         }
     }
@@ -89,7 +88,7 @@ static size_t BuildOpeningBrace(const char* componentName, char* currentWrite, s
     {
         if ((currentOutputBytes = snprintf(currentWrite, remainingBytes, PROPERTY_OPEN_BRACE)) < 0)
         {
-            LogError("Cannot build properites string");
+            LogError("Cannot write properites string");
             return (size_t)-1;
         }
     }
@@ -97,7 +96,8 @@ static size_t BuildOpeningBrace(const char* componentName, char* currentWrite, s
     return currentOutputBytes;
 }
 
-static size_t BuildClosingBrace(bool isComponent, char** currentWrite, size_t* requiredBytes, size_t* remainingBytes)
+// WriteOpeningBrace writes the required number of closing ? while writing JSON
+static size_t WriteClosingBrance(bool isComponent, char** currentWrite, size_t* requiredBytes, size_t* remainingBytes)
 {
     size_t currentOutputBytes = 0;
     size_t numberOfBraces = isComponent ? 2 : 1;
@@ -106,7 +106,7 @@ static size_t BuildClosingBrace(bool isComponent, char** currentWrite, size_t* r
     {
         if ((currentOutputBytes += snprintf(*currentWrite, *remainingBytes, PROPERTY_CLOSE_BRACE)) < 0)
         {
-            LogError("Cannot build properites string");
+            LogError("Cannot write properites string");
             return (size_t)-1;
         }
         AdvanceCountersAfterWrite(currentOutputBytes, currentWrite, requiredBytes, remainingBytes);
@@ -115,20 +115,19 @@ static size_t BuildClosingBrace(bool isComponent, char** currentWrite, size_t* r
     return currentOutputBytes;
 }
 
-
-// BuildReportedProperties is used to build up the actual serializedProperties string based 
+// WriteReportedProperties writes the actual serializedProperties string based 
 // on the properties.  If serializedProperties==NULL and serializedPropertiesLength=0, just like
 // analogous snprintf it will just calculate the amount of space caller needs to allocate.
-static size_t BuildReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* properties, size_t numProperties, const char* componentName, unsigned char* serializedProperties, size_t serializedPropertiesLength)
+static size_t WriteReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* properties, size_t numProperties, const char* componentName, unsigned char* serializedProperties, size_t serializedPropertiesLength)
 {
     size_t requiredBytes = 0;
     size_t currentOutputBytes;
     size_t remainingBytes = serializedPropertiesLength;
     char* currentWrite = (char*)serializedProperties;
 
-    if ((currentOutputBytes = BuildOpeningBrace(componentName,  currentWrite, remainingBytes)) < 0)
+    if ((currentOutputBytes = WriteOpeningBrace(componentName,  currentWrite, remainingBytes)) < 0)
     {
-        LogError("Cannot build properites string");
+        LogError("Cannot write properites string");
         return (size_t)-1;
     }
     AdvanceCountersAfterWrite(currentOutputBytes, &currentWrite, &requiredBytes, &remainingBytes);
@@ -137,36 +136,36 @@ static size_t BuildReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* pro
     {
         bool lastProperty = (i == (numProperties - 1));
         if ((currentOutputBytes = snprintf(currentWrite, remainingBytes, PROPERTY_FORMAT_NAME_VALUE, 
-                                            properties[i].name, properties[i].value, CommaIfNeeded(lastProperty))) < 0)
+                                            properties[i].name, properties[i].value, AddCommaIfNeeded(lastProperty))) < 0)
         {
-            LogError("Cannot build properites string");
+            LogError("Cannot write properites string");
             return (size_t)-1;
         }
         AdvanceCountersAfterWrite(currentOutputBytes, &currentWrite, &requiredBytes, &remainingBytes);
     }
 
-    if (BuildClosingBrace(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
+    if (WriteClosingBrance(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
     {
-        LogError("Cannot build properites string");
+        LogError("Cannot write properites string");
         return (size_t)-1;
     }
 
     return (requiredBytes + 1);
 }
 
-// BuildWritableResponseProperties is used to build up the actual serializedProperties string based 
+// WriteWritableResponseProperties is used to write serializedProperties string based 
 // on the writable response properties.  If serializedProperties==NULL and serializedPropertiesLength=0, just like
 // analogous snprintf it will just calculate the amount of space caller needs to allocate.
-static size_t BuildWritableResponseProperties(const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE* properties, size_t numProperties, const char* componentName, unsigned char* serializedProperties, size_t serializedPropertiesLength)
+static size_t WriteWritableResponseProperties(const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE* properties, size_t numProperties, const char* componentName, unsigned char* serializedProperties, size_t serializedPropertiesLength)
 {
     size_t requiredBytes = 0;
     size_t currentOutputBytes;
     size_t remainingBytes = serializedPropertiesLength;
     char* currentWrite = (char*)serializedProperties;
 
-    if ((currentOutputBytes = BuildOpeningBrace(componentName,  currentWrite, remainingBytes)) < 0)
+    if ((currentOutputBytes = WriteOpeningBrace(componentName,  currentWrite, remainingBytes)) < 0)
     {
-        LogError("Cannot build properites string");
+        LogError("Cannot write properites string");
         return (size_t)-1;
     }
     AdvanceCountersAfterWrite(currentOutputBytes, &currentWrite, &requiredBytes, &remainingBytes);
@@ -177,18 +176,18 @@ static size_t BuildWritableResponseProperties(const IOTHUB_CLIENT_WRITABLE_PROPE
         if (properties[i].description == NULL)
         {
             if ((currentOutputBytes = snprintf(currentWrite, remainingBytes, PROPERTY_FORMAT_WRITABLE_RESPONSE, properties[i].name, 
-                                                properties[i].value, properties[i].result, properties[i].ackVersion, CommaIfNeeded(lastProperty))) < 0)
+                                                properties[i].value, properties[i].result, properties[i].ackVersion, AddCommaIfNeeded(lastProperty))) < 0)
             {
-                LogError("Cannot build properites string");
+                LogError("Cannot write properites string");
                 return (size_t)-1;
             }
         }
         else
         {
             if ((currentOutputBytes = snprintf(currentWrite, remainingBytes, PROPERTY_FORMAT_WRITABLE_RESPONSE_WITH_DESCRIPTION, properties[i].name, 
-                                                properties[i].value, properties[i].result, properties[i].ackVersion, properties[i].description, CommaIfNeeded(lastProperty))) < 0)
+                                                properties[i].value, properties[i].result, properties[i].ackVersion, properties[i].description, AddCommaIfNeeded(lastProperty))) < 0)
             {
-                LogError("Cannot build properites string");
+                LogError("Cannot write properites string");
                 return (size_t)-1;
             }
         }
@@ -196,9 +195,9 @@ static size_t BuildWritableResponseProperties(const IOTHUB_CLIENT_WRITABLE_PROPE
         AdvanceCountersAfterWrite(currentOutputBytes, &currentWrite, &requiredBytes, &remainingBytes);
     }
 
-    if (BuildClosingBrace(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
+    if (WriteClosingBrance(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
     {
-        LogError("Cannot build properites string");
+        LogError("Cannot write properites string");
         return (size_t)-1;
     }
 
@@ -216,7 +215,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIE
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
     }
-    else if ((requiredBytes = BuildReportedProperties(properties, numProperties, componentName, NULL, 0)) < 0)
+    else if ((requiredBytes = WriteReportedProperties(properties, numProperties, componentName, NULL, 0)) < 0)
     {
         LogError("Cannot determine required length of reported properties buffer");
         result = IOTHUB_CLIENT_ERROR;
@@ -226,7 +225,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIE
         LogError("Cannot allocate %ul bytes", requiredBytes);
         result = IOTHUB_CLIENT_ERROR;
     }
-    else if (BuildReportedProperties(properties, numProperties, componentName, serializedPropertiesBuffer, requiredBytes) < 0)
+    else if (WriteReportedProperties(properties, numProperties, componentName, serializedPropertiesBuffer, requiredBytes) < 0)
     {
         LogError("Cannot write properties buffer");
         result = IOTHUB_CLIENT_ERROR;
@@ -265,7 +264,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
     }
-    else if ((requiredBytes = BuildWritableResponseProperties(properties, numProperties, componentName, NULL, 0)) < 0)
+    else if ((requiredBytes = WriteWritableResponseProperties(properties, numProperties, componentName, NULL, 0)) < 0)
     {
         LogError("Cannot determine required length of reported properties buffer");
         result = IOTHUB_CLIENT_ERROR;
@@ -275,7 +274,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
         LogError("Cannot allocate %ul bytes", requiredBytes);
         result = IOTHUB_CLIENT_ERROR;
     }
-    else if (BuildWritableResponseProperties(properties, numProperties, componentName, serializedPropertiesBuffer, requiredBytes) < 0)
+    else if (WriteWritableResponseProperties(properties, numProperties, componentName, serializedPropertiesBuffer, requiredBytes) < 0)
     {
         LogError("Cannot write properties buffer");
         result = IOTHUB_CLIENT_ERROR;
@@ -300,9 +299,9 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
 
 
 // We have an explicit destroy function for serialized properties, even though IoTHubClient_Serialize_ReportedProperties
-// and IoTHubClient_Serialize_WritablePropertyResponse used malloc() and app could've just free() directly, because
-// * If SDK is setup to use a custom allocator (gballoc.h) then we use same malloc() / free() matching
-// * This gives us flexibility to use non-malloc based allocators in future
+// and IoTHubClient_Serialize_WritablePropertyResponse used malloc() and app could've theoretically done free() directly.  Because:
+// * If the SDK is setup to use a custom allocator (gballoc.h) then we use same malloc() / free() matching to free.
+// * This gives us flexibility to use non-malloc based allocators in future.
 // * Maintains symmetry with _Destroy() as mechanism to free resources SDK allocates.
 void IoTHubClient_Serialize_Properties_Destroy(unsigned char* serializedProperties)
 {
@@ -312,8 +311,10 @@ void IoTHubClient_Serialize_Properties_Destroy(unsigned char* serializedProperti
     }
 }
 
-// The underlying twin payload received from the client SDK is not NULL terminated, but
-// parson requires this.  Make a temporary copy of string to NULL terminate.
+//
+// CopyPayloadToString creates a null-terminated string from the payload buffer.
+// payload is not guaranteed to be null-terminated by the IoT Hub device SDK.
+//
 static char* CopyPayloadToString(const unsigned char* payload, size_t size)
 {
     char* jsonStr;
@@ -332,7 +333,7 @@ static char* CopyPayloadToString(const unsigned char* payload, size_t size)
     return jsonStr;
 }
 
-// GetDesiredAndReportedTwinJson retrieves the desired and (if available) the reported sections of IoT Hub twin as JSON_Object's for later use.
+// GetDesiredAndReportedTwinJson retrieves the desired and (if available) the reported sections of IoT Hub twin as JSON_Objects for later use.
 // When a full twin is sent, the JSON consists of {"desired":{...}, "reported":{...}}".  If we're processing an update patch, 
 // IoT Hub does not send us the "reported" and the "desired" is by convention taken to be the root of the JSON document received.
 static IOTHUB_CLIENT_RESULT GetDesiredAndReportedTwinJson(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator)
@@ -394,7 +395,8 @@ static IOTHUB_CLIENT_RESULT GetTwinVersion(JSON_Object* desiredObject, int* prop
 
 // IsJsonObjectAComponentInModel checks whether the objectName, read from the top-level child of the desired device twin JSON, 
 // is in componentsInModel that the application passed into us.  There is no way for the SDK to otherwise be able to 
-// tell a property from a sub-component, as the protocol does not guaranteed we will received a "__t" marker over the network.
+// tell a property from a sub-component, as the protocol does not guaranteed we will received a "__t" marker over the network
+// even if the underlying twin JSON on the service has this data.
 static bool IsJsonObjectAComponentInModel(IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator, const char* objectName)
 {
     bool result = false;
@@ -419,6 +421,7 @@ static bool IsJsonObjectAComponentInModel(IOTHUB_CLIENT_PROPERTY_ITERATOR* prope
     return result;
 }
 
+// AllocatePropertyIterator performs the initialization and allocation for a new property iterator.
 static IOTHUB_CLIENT_PROPERTY_ITERATOR* AllocatePropertyIterator(const char** componentsInModel, size_t numComponentsInModel)
 {
     IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator;
@@ -435,6 +438,8 @@ static IOTHUB_CLIENT_PROPERTY_ITERATOR* AllocatePropertyIterator(const char** co
     }
     else
     {
+        // Copy the component list into the iterator handle, since caller does not guarantee that the
+        // list it passes to us will be valid for later reference.
         propertyIterator->numComponentsInModel = numComponentsInModel;
 
         if ((propertyIterator->componentsInModel = (char**)calloc(numComponentsInModel, sizeof(char*))) == NULL)
@@ -452,12 +457,8 @@ static IOTHUB_CLIENT_PROPERTY_ITERATOR* AllocatePropertyIterator(const char** co
                 }
             }
 
-            if (i == numComponentsInModel)
-            {
-                success = true;
-            }
+            success =  (i == numComponentsInModel);
         }
-
     }
 
     if (success == false)
@@ -469,6 +470,7 @@ static IOTHUB_CLIENT_PROPERTY_ITERATOR* AllocatePropertyIterator(const char** co
     return propertyIterator;
 }
 
+// ValidateIteratorInputs makes sure that the parameter list passed in IoTHubClient_Deserialize_Properties_CreateIterator is valid.
 static bool ValidateIteratorInputs(
     IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType,
     const unsigned char* payload,
@@ -485,7 +487,7 @@ static bool ValidateIteratorInputs(
         LogError("Payload type %d is invalid", payloadType);
         result = IOTHUB_CLIENT_INVALID_ARG;
     }
-    else if ((payload == NULL) || (payloadLength == 0) || (propertyIteratorHandle == NULL) || (propertiesVersion == 0))
+    else if ((payload == NULL) || (payloadLength == 0) || (propertyIteratorHandle == NULL) || (propertiesVersion == NULL))
     {
         LogError("NULL arguments passed");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -509,20 +511,13 @@ static bool ValidateIteratorInputs(
             }
         }
 
-        if (i == numComponentsInModel)
-        {
-            result = IOTHUB_CLIENT_OK;
-        }
-        else
-        {
-            result = IOTHUB_CLIENT_INVALID_ARG;
-        }
+        result = (i == numComponentsInModel) ? IOTHUB_CLIENT_OK : IOTHUB_CLIENT_INVALID_ARG;
     }
 
     return result;
 }
 
-// FillProperty retrieves properties that are children of jsonObject and puts them into properties, starting at the 0 index.
+// FillProperty retrieves properties that are children of jsonObject and puts them into properties 'property' to be returned to the application.
 static IOTHUB_CLIENT_RESULT FillProperty(IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator, const char* componentName, JSON_Value* propertyValue, const char* propertyName, IOTHUB_CLIENT_DESERIALIZED_PROPERTY* property)
 {
     IOTHUB_CLIENT_RESULT result = IOTHUB_CLIENT_ERROR;
@@ -535,6 +530,8 @@ static IOTHUB_CLIENT_RESULT FillProperty(IOTHUB_CLIENT_PROPERTY_ITERATOR* proper
     }
     else
     {
+        // Note that most fields in the returned IOTHUB_CLIENT_DESERIALIZED_PROPERTY are shallow copies.  This memory remains valid until
+        // the application calls IoTHubClient_Deserialize_Properties_DestroyIterator.
         property->propertyType = (propertyIterator->propertyParseState == PROPERTY_PARSE_DESIRED) ? 
                                  IOTHUB_CLIENT_PROPERTY_TYPE_WRITABLE : IOTHUB_CLIENT_PROPERTY_TYPE_REPORTED_FROM_DEVICE;
         property->componentName = componentName;
@@ -548,16 +545,19 @@ static IOTHUB_CLIENT_RESULT FillProperty(IOTHUB_CLIENT_PROPERTY_ITERATOR* proper
     return result;
 }
 
+// IsReservedPropertyKeyword returns true if the given objectName is part of reserved PnP/Twin metadata for properties, false otherwise.
 static bool IsReservedPropertyKeyword(const char* objectName)
 {
     return ((objectName == NULL) || (strcmp(objectName, TWIN_VERSION) == 0));
 }
 
+// IsReservedPropertyKeyword returns true if the given objectName is part of reserved PnP/Twin metadata for components, false otherwise.
 static bool IsReservedComponentKeyword(const char* objectName)
 {
     return ((objectName == NULL) || (strcmp(objectName, TWIN_COMPONENT_MARKER) == 0));
 }
 
+// GetNextComponentProperty advances through a given component's properties, returning either the next to be enumerated or that there's nothing left to traverse.
 static bool GetNextComponentProperty(IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator, JSON_Object* containerObject, const char** propertyName, JSON_Value** propertyValue)
 {
     JSON_Value* componentValue = json_object_get_value_at(containerObject, propertyIterator->currentPropertyIndex);
@@ -597,6 +597,7 @@ static bool GetNextComponentProperty(IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIt
     return (*propertyValue != NULL);
 }
 
+// GetNextPropertyToEnumerate advances through a property list, returning either the next property to be enumerated or that there's nothing left to traverse.
 static bool GetNextPropertyToEnumerate(IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator, const char** componentName, const char** propertyName, JSON_Value** propertyValue)
 {
     JSON_Object* containerObject;
@@ -651,6 +652,7 @@ static bool GetNextPropertyToEnumerate(IOTHUB_CLIENT_PROPERTY_ITERATOR* property
         }
         else
         {
+            // We've found a property of the root component.
             *componentName = NULL;
             *propertyName = objectName;
             *propertyValue = json_object_get_value_at(containerObject, propertyIterator->currentPropertyIndex);
@@ -798,4 +800,3 @@ void IoTHubClient_Deserialize_Properties_DestroyIterator(IOTHUB_CLIENT_PROPERTY_
         free(propertyIterator);
     }
 }
-
