@@ -14,6 +14,8 @@
 // Core IoT SDK utilities
 #include "azure_c_shared_utility/xlogging.h"
 
+#include "pnp_status_values.h"
+
 // Size of buffer to store ISO 8601 time.
 #define TIME_BUFFER_SIZE 128
 
@@ -304,7 +306,7 @@ static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermosta
     IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
 }
 
-void SendMaxTemperatureSinceReboot(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
+void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient)
 {
     PNP_THERMOSTAT_COMPONENT* pnpThermostatComponent = (PNP_THERMOSTAT_COMPONENT*)pnpThermostatComponentHandle;
     char maximumTemperatureAsString[MAX_TEMPERATURE_SINCE_REBOOT_BUFFER_SIZE];
@@ -369,7 +371,7 @@ void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HAND
             if (maxTempUpdated)
             {
                 // If the maximum temperature has been updated, we also report this as a property.
-                SendMaxTemperatureSinceReboot(pnpThermostatComponent, deviceClient);
+                PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(pnpThermostatComponent, deviceClient);
             }
         }
     }

@@ -27,6 +27,8 @@
 #include "azure_c_shared_utility/threadapi.h"
 #include "azure_c_shared_utility/xlogging.h"
 
+#include "pnp_status_values.h"
+
 #ifdef SET_TRUSTED_CERT_IN_SAMPLES
 // For devices that do not have (or want) an OS level trusted certificate store,
 // but instead bring in default trusted certificates from the Azure IoT C SDK.
@@ -395,21 +397,6 @@ static void PnP_TempControlComponent_ReportSerialNumber_Property(IOTHUB_DEVICE_C
     }
 
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
-}
-
-//
-// CreateDeviceClientLLHandle performs actual handle creation (but nothing more), depending
-// on whether connection strings or DPS is used.
-//
-static IOTHUB_DEVICE_CLIENT_LL_HANDLE CreateDeviceClientLLHandle(void)
-{
-#ifdef USE_PROV_MODULE_FULL
-    if (g_pnpDeviceConfiguration.securityType == PNP_CONNECTION_SECURITY_TYPE_DPS)
-    {
-        return PnP_CreateDeviceClientLLHandle_ViaDps(&g_pnpDeviceConfiguration);
-    }
-#endif
-    return IoTHubDeviceClient_LL_CreateFromConnectionString(g_pnpDeviceConfiguration.u.connectionString, MQTT_Protocol);
 }
 
 //

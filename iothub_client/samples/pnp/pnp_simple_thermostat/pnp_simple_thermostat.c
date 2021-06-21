@@ -26,6 +26,8 @@
 #include "azure_c_shared_utility/threadapi.h"
 #include "azure_c_shared_utility/xlogging.h"
 
+#include "pnp_status_values.h"
+
 #ifdef SET_TRUSTED_CERT_IN_SAMPLES
 // For devices that do not have (or want) an OS level trusted certificate store,
 // but instead bring in default trusted certificates from the Azure IoT C SDK.
