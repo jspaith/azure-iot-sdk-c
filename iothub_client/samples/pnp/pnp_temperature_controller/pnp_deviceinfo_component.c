@@ -12,7 +12,6 @@
 
 // Property names along with their simulated values.  
 // NOTE: the property values must be legal JSON values.  Strings specifically must be enclosed with an extra set of quotes to be legal json string values.
-// The property names in this sample do not hard-code the extra quotes because the underlying PnP sample adds this to names automatically.
 #define PNP_ENCODE_STRING_FOR_JSON(str) #str
 
 static const char PnPDeviceInfo_SoftwareVersionPropertyName[] = "swVersion";
@@ -58,8 +57,7 @@ void PnP_DeviceInfoComponent_Report_All_Properties(const char* componentName, IO
 
     const int numProperties = sizeof(properties) / sizeof(properties[0]);
 
-    // The first step of reporting properties is to serialize it into an IoT Hub friendly format.  You can do this by either
-    // implementing the PnP convention for building up the correct JSON or more simply to use IoTHubClient_Serialize_ReportedProperties.
+    // The first step of reporting properties is to serialize IOTHUB_CLIENT_REPORTED_PROPERTY into JSON for sending.
     if ((iothubClientResult = IoTHubClient_Serialize_ReportedProperties(properties, numProperties, componentName, &propertiesSerialized, &propertiesSerializedLength)) != IOTHUB_CLIENT_OK)
     {
         LogError("Unable to serialize reported state, error=%d", iothubClientResult);
@@ -72,4 +70,3 @@ void PnP_DeviceInfoComponent_Report_All_Properties(const char* componentName, IO
 
     IoTHubClient_Serialize_Properties_Destroy(propertiesSerialized);
 }
-

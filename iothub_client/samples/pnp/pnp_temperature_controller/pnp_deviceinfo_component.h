@@ -13,7 +13,7 @@
 #include "iothub_device_client_ll.h"
 
 //
-// PnP_DeviceInfoComponent_Report_All_Properties sends properties corresponding to the DeviceInfo interface to the cloud.
+// PnP_DeviceInfoComponent_Report_All_Properties sends properties corresponding to the DeviceInfo interface to IoT Hub.
 //
 void PnP_DeviceInfoComponent_Report_All_Properties(const char* componentName, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient);
 

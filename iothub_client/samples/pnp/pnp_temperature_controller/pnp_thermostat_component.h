@@ -46,7 +46,7 @@ int PnP_ThermostatComponent_ProcessCommand(PNP_THERMOSTAT_COMPONENT_HANDLE pnpTh
 void PnP_ThermostatComponent_ProcessPropertyUpdate(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient, const char* propertyName, const char* propertyValue, int version);
 
 //
-// PnP_ThermostatComponent_SendCurrentTemperature sends telemetry indicating the current temperature of the thermostat.
+// PnP_ThermostatComponent_SendCurrentTemperature sends a telemetry message indicating the current temperature.
 //
 void PnP_ThermostatComponent_SendCurrentTemperature(PNP_THERMOSTAT_COMPONENT_HANDLE pnpThermostatComponentHandle, IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceClient);
 

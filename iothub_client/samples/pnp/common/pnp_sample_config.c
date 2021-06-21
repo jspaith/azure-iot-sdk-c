@@ -130,4 +130,3 @@ bool GetConnectionSettingsFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDeviceCon
 
     return result;    
 }
-

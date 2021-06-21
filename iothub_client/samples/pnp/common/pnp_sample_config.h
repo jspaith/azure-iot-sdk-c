@@ -48,10 +48,10 @@ typedef struct PNP_DEVICE_CONFIGURATION_TAG
     bool enableTracing;
 } PNP_DEVICE_CONFIGURATION;
 
-#endif /* PNP_SAMPLE_CONFIG */
 //
 // GetConfigurationFromEnvironment determines how to connect to the IoT Hub (using 
 // either a connection string or a DPS symmetric key) from the environment.
 //
 bool GetConnectionSettingsFromEnvironment(PNP_DEVICE_CONFIGURATION* pnpDeviceConfiguration);
 
+#endif /* PNP_SAMPLE_CONFIG */
