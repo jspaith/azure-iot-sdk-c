@@ -11,7 +11,7 @@ Samples in an earlier version of the SDK used the files listed below.  **These f
   
   Applications instead should use the official Plug and Play API because:
   * The API has been more thoroughly reviewed than the sample helper and more intuitive to use.  
-  * The API, unlike the samples but like all product code in the IoT Device SDK, receives full automated testing.  
+  * The API, unlike the samples but like all product code in the IoT Device SDK, receives fully automated testing on every checkin.
   * The API will also receive support for any future Plug and Play innovations and bug fixes.  `pnp_protocol.*` will not.
 
   The samples in the [parent](..) directory use the official API.
