@@ -337,7 +337,7 @@ static void SendTargetTemperatureResponse(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceC
     IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE desiredTemperatureResponse;
     memset(&desiredTemperatureResponse, 0, sizeof(desiredTemperatureResponse));
     // Specify the structure version (not to be confused with the $version on IoT Hub) to protect back-compat in case the structure adds fields.
-    desiredTemperatureResponse.structVersion = IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_VERSION_1;
+    desiredTemperatureResponse.structVersion = IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1;
     // This represents the version of the request from IoT Hub.  It needs to be returned so service applications can determine
     // what current version of the writable property the device is currently using, as the server may update the property even when the device
     // is offline.
@@ -382,7 +382,7 @@ static void SendMaxTemperatureSinceReboot(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceC
     }
     else
     {
-        IOTHUB_CLIENT_REPORTED_PROPERTY maxTempProperty = { IOTHUB_CLIENT_REPORTED_PROPERTY_VERSION_1, g_maxTempSinceLastRebootPropertyName, maximumTemperatureAsString };
+        IOTHUB_CLIENT_REPORTED_PROPERTY maxTempProperty = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, g_maxTempSinceLastRebootPropertyName, maximumTemperatureAsString };
 
         unsigned char* propertySerialized = NULL;
         size_t propertySerializedLength;
@@ -448,14 +448,18 @@ static int Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE pay
 
     // The properties arrive as a raw JSON buffer (which is not null-terminated).  IoTHubClient_Deserialize_Properties_CreateIterator parses 
     // this into a more convenient form to allow property-by-property enumeration over the updated properties.
-    if ((clientResult = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, payload, payloadLength, NULL, 0, &propertyIterator, &propertiesVersion)) != IOTHUB_CLIENT_OK)
+    if ((clientResult = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, payload, payloadLength, NULL, 0, &propertyIterator)) != IOTHUB_CLIENT_OK)
     {
         LogError("IoTHubClient_Deserialize_Properties failed, error=%d", clientResult);
+    }
+    else if ((clientResult = IoTHubClient_Deserialize_Properties_GetVersion(propertyIterator, &propertiesVersion)) != IOTHUB_CLIENT_OK)
+    {
+        LogError("IoTHubClient_Deserialize_Properties_GetVersion failed, error=%d", clientResult);
     }
     else
     {
         bool propertySpecified;
-        property.structVersion = IOTHUB_CLIENT_DESERIALIZED_PROPERTY_VERSION_1;
+        property.structVersion = IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1;
 
         while ((clientResult = IoTHubClient_Deserialize_Properties_GetNextProperty(propertyIterator, &property, &propertySpecified)) == IOTHUB_CLIENT_OK)
         {
@@ -484,7 +488,7 @@ static int Thermostat_PropertiesCallback(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE pay
             {   
                 LogError("Property %s arrived for non-root component %s.  This model does not support such properties", property.name, property.componentName);
             }
-            else if (strcmp(property.componentName, g_targetTemperaturePropertyName) == 0)
+            else if (strcmp(property.name, g_targetTemperaturePropertyName) == 0)
             {
                 Thermostat_ProcessTargetTemperature(deviceClient, &property, propertiesVersion);
             }

@@ -31,6 +31,7 @@ typedef struct IOTHUB_CLIENT_PROPERTY_ITERATOR_TAG {
     PROPERTY_PARSE_STATE propertyParseState;
     size_t currentComponentIndex;
     size_t currentPropertyIndex;
+    int propertiesVersion;
 } IOTHUB_CLIENT_PROPERTY_ITERATOR;
 
 // sprintf format strings and string constants for writing properties.
@@ -97,14 +98,14 @@ static size_t WriteOpeningBrace(const char* componentName, char* currentWrite, s
 }
 
 // WriteOpeningBrace writes the required number of closing ? while writing JSON
-static size_t WriteClosingBrance(bool isComponent, char** currentWrite, size_t* requiredBytes, size_t* remainingBytes)
+static size_t WriteClosingBrace(bool isComponent, char** currentWrite, size_t* requiredBytes, size_t* remainingBytes)
 {
     size_t currentOutputBytes = 0;
     size_t numberOfBraces = isComponent ? 2 : 1;
 
     for (size_t i = 0; i < numberOfBraces; i++)
     {
-        if ((currentOutputBytes += snprintf(*currentWrite, *remainingBytes, PROPERTY_CLOSE_BRACE)) < 0)
+        if ((currentOutputBytes = snprintf(*currentWrite, *remainingBytes, PROPERTY_CLOSE_BRACE)) < 0)
         {
             LogError("Cannot write properites string");
             return (size_t)-1;
@@ -144,7 +145,7 @@ static size_t WriteReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* pro
         AdvanceCountersAfterWrite(currentOutputBytes, &currentWrite, &requiredBytes, &remainingBytes);
     }
 
-    if (WriteClosingBrance(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
+    if (WriteClosingBrace(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
     {
         LogError("Cannot write properites string");
         return (size_t)-1;
@@ -195,13 +196,13 @@ static size_t WriteWritableResponseProperties(const IOTHUB_CLIENT_WRITABLE_PROPE
         AdvanceCountersAfterWrite(currentOutputBytes, &currentWrite, &requiredBytes, &remainingBytes);
     }
 
-    if (WriteClosingBrance(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
+    if (WriteClosingBrace(componentName != NULL, &currentWrite, &requiredBytes, &remainingBytes) == -1)
     {
         LogError("Cannot write properites string");
         return (size_t)-1;
     }
 
-    return requiredBytes;
+    return (requiredBytes + 1);
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* properties, size_t numProperties, const char* componentName, unsigned char** serializedProperties, size_t* serializedPropertiesLength)
@@ -210,7 +211,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIE
     size_t requiredBytes = 0;
     unsigned char* serializedPropertiesBuffer = NULL;
 
-    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_REPORTED_PROPERTY_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == 0))
+    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == 0))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -259,7 +260,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
     size_t requiredBytes = 0;
     unsigned char* serializedPropertiesBuffer = NULL;
 
-    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == 0))
+    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == 0))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -369,12 +370,12 @@ static IOTHUB_CLIENT_RESULT GetDesiredAndReportedTwinJson(IOTHUB_CLIENT_PROPERTY
 
 // GetTwinVersion retrieves the $version field from JSON document received from IoT Hub.  
 // The application needs this value when acknowledging writable properties received from the service.
-static IOTHUB_CLIENT_RESULT GetTwinVersion(JSON_Object* desiredObject, int* propertiesVersion)
+static IOTHUB_CLIENT_RESULT GetTwinVersion(IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator)
 {
     IOTHUB_CLIENT_RESULT result;
     JSON_Value* versionValue = NULL;
 
-    if ((versionValue = json_object_get_value(desiredObject, TWIN_VERSION)) == NULL)
+    if ((versionValue = json_object_get_value(propertyIterator->desiredObject, TWIN_VERSION)) == NULL)
     {
         LogError("Cannot retrieve %s field for twin", TWIN_VERSION);
         result = IOTHUB_CLIENT_ERROR;
@@ -386,7 +387,7 @@ static IOTHUB_CLIENT_RESULT GetTwinVersion(JSON_Object* desiredObject, int* prop
     }
     else
     {
-        *propertiesVersion = (int)json_value_get_number(versionValue);
+        propertyIterator->propertiesVersion = (int)json_value_get_number(versionValue);
         result = IOTHUB_CLIENT_OK;
     }
 
@@ -477,17 +478,16 @@ static bool ValidateIteratorInputs(
     size_t payloadLength,
     const char** componentsInModel,
     size_t numComponentsInModel,
-    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE* propertyIteratorHandle,
-    int* propertiesVersion)
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE* propertyIteratorHandle)
 {
     IOTHUB_CLIENT_RESULT result;
 
-    if ((payloadType != IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL) && (payloadType != IOTHUB_CLIENT_PROPERTY_PAYLOAD_UPDATES))
+    if ((payloadType != IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL) && (payloadType != IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES))
     {
         LogError("Payload type %d is invalid", payloadType);
         result = IOTHUB_CLIENT_INVALID_ARG;
     }
-    else if ((payload == NULL) || (payloadLength == 0) || (propertyIteratorHandle == NULL) || (propertiesVersion == NULL))
+    else if ((payload == NULL) || (payloadLength == 0) || (propertyIteratorHandle == NULL))
     {
         LogError("NULL arguments passed");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -671,15 +671,14 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_CreateIterator(
     size_t payloadLength,
     const char** componentsInModel,
     size_t numComponentsInModel,
-    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE* propertyIteratorHandle,
-    int* propertiesVersion)
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE* propertyIteratorHandle)
 {
     IOTHUB_CLIENT_RESULT result;
     char* jsonStr = NULL;
 
     IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator = NULL;
 
-    if ((result = ValidateIteratorInputs(payloadType, payload, payloadLength, componentsInModel, numComponentsInModel, propertyIteratorHandle, propertiesVersion)) != IOTHUB_CLIENT_OK)
+    if ((result = ValidateIteratorInputs(payloadType, payload, payloadLength, componentsInModel, numComponentsInModel, propertyIteratorHandle)) != IOTHUB_CLIENT_OK)
     {
         LogError("Invalid argument");
     }
@@ -704,7 +703,11 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_CreateIterator(
         {
             LogError("Cannot retrieve desired and/or reported object from JSON");
         }
-        else if ((result = GetTwinVersion(propertyIterator->desiredObject, propertiesVersion)) != IOTHUB_CLIENT_OK)
+        // Retrieve the twin version and cache with the propertyIterator.  We do this in the enumeration creation,
+        // even though IoTHubClient_Deserialize_Properties_GetVersion theoretically could've parsed this on demand,
+        // because if this fails we waint to fail creation of the enumerator.  A twin without version info
+        // is not valid and the application will not be able to properly acknowledge writable properties in this case.
+        else if ((result = GetTwinVersion(propertyIterator)) != IOTHUB_CLIENT_OK)
         {
             LogError("Cannot retrieve properties version");
         }
@@ -725,6 +728,17 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_CreateIterator(
     }
 
     return result;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetVersion(
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE propertyIteratorHandle,
+    int* propertiesVersion)
+{
+    // TODO: Add error checking here & other places
+    IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator = (IOTHUB_CLIENT_PROPERTY_ITERATOR*)propertyIteratorHandle;
+
+    *propertiesVersion = propertyIterator->propertiesVersion;
+    return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetNextProperty(
