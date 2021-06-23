@@ -399,7 +399,7 @@ static void SendMaxTemperatureSinceReboot(IOTHUB_DEVICE_CLIENT_LL_HANDLE deviceC
         }
         else
         {
-            LogInfo("Sending maximumTemperatureSinceLastReboot property to IoTHub for component");
+            LogInfo("Sending %s property to IoTHub for component", g_maxTempSinceLastRebootPropertyName);
         }
         IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
     }

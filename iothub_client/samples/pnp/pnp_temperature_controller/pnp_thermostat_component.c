@@ -335,7 +335,7 @@ void PnP_TempControlComponent_Report_MaxTempSinceLastReboot_Property(PNP_THERMOS
         }
         else
         {
-            LogInfo("Sending maximumTemperatureSinceLastReboot property to IoTHub for component %s", pnpThermostatComponent->componentName);
+            LogInfo("Sending %s property to IoTHub for component %s", g_maxTempSinceLastRebootPropertyName, pnpThermostatComponent->componentName);
         }
         IoTHubClient_Serialize_Properties_Destroy(propertySerialized);
     }

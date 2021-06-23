@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-// TODO: There is some vestigial code from origal (un memory friendly) initial way of implementing this.  Remove eventually.
-
 #include "azure_c_shared_utility/gballoc.h"
 #include "azure_c_shared_utility/xlogging.h"
 
@@ -205,13 +203,41 @@ static size_t WriteWritableResponseProperties(const IOTHUB_CLIENT_WRITABLE_PROPE
     return (requiredBytes + 1);
 }
 
+static bool VerifyReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* properties, size_t numProperties)
+{
+    bool result = false;
+
+    if ((properties == NULL) || (numProperties == 0))
+    {
+        LogError("Invalid properties");
+        result = false;
+    }
+    else
+    {
+        size_t i;
+        for (i = 0; i < numProperties; i++)
+        {
+            if ((properties[i].structVersion != IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1) || (properties[i].name == NULL) || (properties[i].value == NULL))
+            {
+                LogError("Property at index %lu ", (unsigned long)i);
+                break;
+            }
+        }
+
+        result = (i == numProperties);
+    }
+
+    return result;
+}
+
+
 IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* properties, size_t numProperties, const char* componentName, unsigned char** serializedProperties, size_t* serializedPropertiesLength)
 {
     IOTHUB_CLIENT_RESULT result;
     size_t requiredBytes = 0;
     unsigned char* serializedPropertiesBuffer = NULL;
 
-    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == 0))
+    if ((VerifyReportedProperties(properties, numProperties) == false) || (serializedProperties == NULL) || (serializedPropertiesLength == NULL))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -260,7 +286,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
     size_t requiredBytes = 0;
     unsigned char* serializedPropertiesBuffer = NULL;
 
-    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == 0))
+    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == NULL))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -734,11 +760,21 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetVersion(
     IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE propertyIteratorHandle,
     int* propertiesVersion)
 {
-    // TODO: Add error checking here & other places
     IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator = (IOTHUB_CLIENT_PROPERTY_ITERATOR*)propertyIteratorHandle;
+    IOTHUB_CLIENT_RESULT result;
 
-    *propertiesVersion = propertyIterator->propertiesVersion;
-    return IOTHUB_CLIENT_OK;
+    if (propertyIteratorHandle == NULL)
+    {
+        LogError("Invalid argument");
+        result = IOTHUB_CLIENT_INVALID_ARG;
+    }
+    else
+    {
+        *propertiesVersion = propertyIterator->propertiesVersion;
+        result = IOTHUB_CLIENT_OK;
+    }
+
+    return result;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetNextProperty(
@@ -753,37 +789,45 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetNextProperty(
     const char* propertyName = NULL;
     const char* componentName = NULL;
 
-    if (propertyIterator->propertyParseState == PROPERTY_PARSE_DESIRED)
+    if ((propertyIteratorHandle == NULL) || (property == NULL) || (propertySpecified == NULL))
     {
-        if ((GetNextPropertyToEnumerate(propertyIterator, &componentName, &propertyName, &propertyValue)) == false)
-        {
-            // If we can't find another desired object, then transition to start searching through reported.
-            propertyIterator->currentPropertyIndex = 0;
-            propertyIterator->propertyParseState = PROPERTY_PARSE_REPORTED;
-        }
-    }
-
-    if (propertyIterator->propertyParseState == PROPERTY_PARSE_REPORTED)
-    {
-        GetNextPropertyToEnumerate(propertyIterator, &componentName, &propertyName, &propertyValue);
-    }
-
-    if (propertyValue != NULL)
-    {
-        // Fills in IOTHUB_CLIENT_DESERIALIZED_PROPERTY based on where we're at in the traversal.
-        if ((result = FillProperty(propertyIterator, componentName, propertyValue, propertyName, property)) != IOTHUB_CLIENT_OK)
-        {
-            LogError("Cannot Fill Properties");
-        }
-        else
-        {
-            *propertySpecified = true;
-        }
+        LogError("Invalid argument");
+        result = IOTHUB_CLIENT_INVALID_ARG;
     }
     else
     {
-        *propertySpecified = false;
-        result = IOTHUB_CLIENT_OK;
+        if (propertyIterator->propertyParseState == PROPERTY_PARSE_DESIRED)
+        {
+            if ((GetNextPropertyToEnumerate(propertyIterator, &componentName, &propertyName, &propertyValue)) == false)
+            {
+                // If we can't find another desired object, then transition to start searching through reported.
+                propertyIterator->currentPropertyIndex = 0;
+                propertyIterator->propertyParseState = PROPERTY_PARSE_REPORTED;
+            }
+        }
+
+        if (propertyIterator->propertyParseState == PROPERTY_PARSE_REPORTED)
+        {
+            GetNextPropertyToEnumerate(propertyIterator, &componentName, &propertyName, &propertyValue);
+        }
+
+        if (propertyValue != NULL)
+        {
+            // Fills in IOTHUB_CLIENT_DESERIALIZED_PROPERTY based on where we're at in the traversal.
+            if ((result = FillProperty(propertyIterator, componentName, propertyValue, propertyName, property)) != IOTHUB_CLIENT_OK)
+            {
+                LogError("Cannot Fill Properties");
+            }
+            else
+            {
+                *propertySpecified = true;
+            }
+        }
+        else
+        {
+            *propertySpecified = false;
+            result = IOTHUB_CLIENT_OK;
+        }
     }
 
     return result;
