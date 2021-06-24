@@ -52,6 +52,8 @@
 #ifndef IOTHUB_CLIENT_PROPERTIES_H
 #define IOTHUB_CLIENT_PROPERTIES_H
 
+#include "umock_c/umock_c_prod.h"
+
 #include <stddef.h>
 
 #include "iothub_client_core_common.h"

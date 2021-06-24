@@ -249,7 +249,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIE
     }
     else if ((serializedPropertiesBuffer = calloc(1, requiredBytes)) == NULL)
     {
-        LogError("Cannot allocate %ul bytes", requiredBytes);
+        LogError("Cannot allocate %lu bytes", (unsigned long)requiredBytes);
         result = IOTHUB_CLIENT_ERROR;
     }
     else if (WriteReportedProperties(properties, numProperties, componentName, serializedPropertiesBuffer, requiredBytes) < 0)
@@ -301,7 +301,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
     }
     else if ((serializedPropertiesBuffer = calloc(1, requiredBytes)) == NULL)
     {
-        LogError("Cannot allocate %ul bytes", requiredBytes);
+        LogError("Cannot allocate %lu bytes", (unsigned long)requiredBytes);
         result = IOTHUB_CLIENT_ERROR;
     }
     else if (WriteWritableResponseProperties(properties, numProperties, componentName, serializedPropertiesBuffer, requiredBytes) < 0)
@@ -535,7 +535,7 @@ static bool ValidateIteratorInputs(
         {
             if (componentsInModel[i] == NULL)
             {
-                LogError("componentsInModel at index %ul is NULL", i);
+                LogError("componentsInModel at index %lu is NULL", i);
                 break;
             }
         }
