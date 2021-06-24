@@ -30,7 +30,6 @@ static void my_gballoc_free(void* ptr)
 #include "testrunnerswitcher.h"
 #include "azure_c_shared_utility/optimize_size.h"
 #include "azure_macro_utils/macro_utils.h"
-//#include "azure_c_shared_utility/shared_util_options.h"
 #include "umock_c/umock_c.h"
 #include "umock_c/umock_c_prod.h"
 #include "umock_c/umock_c_negative_tests.h"
@@ -41,7 +40,7 @@ static void my_gballoc_free(void* ptr)
 #define ENABLE_MOCKS
 // iothub_client_core_common.h is required under ENABLE_MOCKS so that TEST_DEFINE_ENUM_TYPE
 // can be successfully resolved for IOTHUB_CLIENT_RESULT below.
-#include "iothub_client_core_common.h"
+//#include "iothub_client_core_common.h"
 
 #include "azure_c_shared_utility/crt_abstractions.h"
 #include "azure_c_shared_utility/gballoc.h"
@@ -60,8 +59,6 @@ extern "C"
 }
 #endif
 #undef ENABLE_MOCKS
-
-#include "azure_c_shared_utility/gballoc.h"
 
 #include "iothub_client_properties.h"
 
