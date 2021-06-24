@@ -36,7 +36,7 @@ typedef struct IOTHUB_CLIENT_PROPERTY_ITERATOR_TAG {
 static const char PROPERTY_FORMAT_COMPONENT_START[] = "{\"%s\":{\"__t\":\"c\",";
 static const char PROPERTY_FORMAT_NAME_VALUE[] = "\"%s\":%s%s";
 static const char PROPERTY_FORMAT_WRITABLE_RESPONSE[] = "\"%s\":{\"value\":%s,\"ac\":%d,\"av\":%d}%s";
-static const char PROPERTY_FORMAT_WRITABLE_RESPONSE_WITH_DESCRIPTION[] = "{\"%s\":{\"value\":%s,\"ac\":%d,\"av\":%d,\"ad\":\"%s\"}%s";
+static const char PROPERTY_FORMAT_WRITABLE_RESPONSE_WITH_DESCRIPTION[] = "\"%s\":{\"value\":%s,\"ac\":%d,\"av\":%d,\"ad\":\"%s\"}%s";
 static const char PROPERTY_OPEN_BRACE[] = "{";
 static const char PROPERTY_CLOSE_BRACE[] = "}";
 static const char PROPERTY_COMMA[] = ",";

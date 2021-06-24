@@ -112,43 +112,17 @@ TEST_FUNCTION_INITIALIZE(method_init)
 
 TEST_FUNCTION_CLEANUP(TestMethodCleanup)
 {
-    ;
+    umock_c_negative_tests_deinit();
 }
-
-
-/*
-IoTHubClient_Serialize_ReportedProperties(
-    const IOTHUB_CLIENT_REPORTED_PROPERTY* properties,
-    size_t numProperties,
-    const char* componentName,
-    unsigned char** serializedProperties,
-    size_t* serializedPropertiesLength)
-
-*/
-// IoTHubClient_Serialize_ReportedProperties_NULL_properties
-
-#if 0
-TEST_FUNCTION(testTemplateForPropertyWriting)
-{
-    // arrange
-
-    // act
-    IOTHUB_CLIENT_RESULT result;
-
-    // assert
-
-    // cleanup
-}
-#endif
 
 // TODO - move static data out of BEGIN_TEST_SUITE since certain msvc's don't like this.  Keep inline for now for convenience.
 // TODO - testPropName1 => TEST_PROP_NAME1 or following convention now this is a #define
 #define testPropName1 "name1"
 #define testPropName2 "name2"
 #define testPropName3 "name3"
-#define testPropValue1 "value1"
-#define testPropValue2 "value2"
-#define testPropValue3 "value3"
+#define testPropValue1 "1234"
+#define testPropValue2 "\"value2\""
+#define testPropValue3 "{\"embeddedJSON\": 123}"
 
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp1 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, testPropValue1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp2 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName2, testPropValue2 };
@@ -400,12 +374,12 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_with_co
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
 
-    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[] = { testReportedProp1, testReportedProp2, testReportedProp3};
+    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedThreeProperties[] = { testReportedProp1, testReportedProp2, testReportedProp3};
 
     set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
 
     // act
-    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 3, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedThreeProperties, 3, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
@@ -415,6 +389,40 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_with_co
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_fail)
+{
+    // arrange
+    int negativeTestsInitResult = umock_c_negative_tests_init();
+    ASSERT_ARE_EQUAL(int, 0, negativeTestsInitResult);
+
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedThreeProperties[] = { testReportedProp1, testReportedProp2, testReportedProp3};
+
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
+    umock_c_negative_tests_snapshot();
+
+    // act
+    // act
+    size_t count = umock_c_negative_tests_call_count();
+    for (size_t index = 0; index < count; index++)
+    {
+        if (umock_c_negative_tests_can_call_fail(index))
+        {
+            umock_c_negative_tests_reset();
+            umock_c_negative_tests_fail_call(index);
+            
+            IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedThreeProperties, 3, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
+
+            //assert
+            ASSERT_ARE_NOT_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+            ASSERT_IS_NULL(serializedProperties);
+            ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+        }
+    }
 }
 
 
@@ -518,31 +526,22 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_wrong_struct_versi
 
 // TODO: Add the NULL name/value tests for writable
 
-/*
-#define TEST_COMPONENT_NAME_1 "testComponent"
-
-#define TEST_COMPONENT_MARKER(componentName) "{\""componentName"\":{\"__t\":\"c\""
-#define TEST_COMPONENT_JSON(componentName, expectedProperties) TEST_COMPONENT_MARKER(componentName) "," expectedProperties "}"
-
-static const char testReportedPropertyComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedPropertyNoComponentJSONNoBrace) "}";
-static const char testReportedTwoPropertiesComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedTwoPropertiesNoComponentJSONNoBrace) "}";
-static const char testReportedThreePropertiesComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedThreePropertiesNoComponentJSONNoBrace) "}";
-
-
-#define testReportedPropertyNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1)
-#define testReportedPropertyNoComponentJSON "{" testReportedPropertyNoComponentJSONNoBrace "}"
-*/
-
-// {"name1":{"value":value1,"ac":200,"av":1}}
-
-
 #define BUILD_EXPECTED_WRITABLE_JSON(name, val, code, version) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version "}"
-#define BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(name, val, code, version, description) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version ",\"ad\": " description "}"
+#define BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(name, val, code, version, description) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version ",\"ad\":\"" description "\"}"
 
+#define testWritableProperty1NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON(testPropName1, testPropValue1, 200, 1)
+#define testWritableProperty1NoComponentJSON "{" testWritableProperty1NoComponentJSONNoBrace "}"
 
-#define testWritablePropertyNoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON(testPropName1, testPropValue1, 200, 1)
-#define testWritablePropertyNoComponentJSON "{" testWritablePropertyNoComponentJSONNoBrace "}"
+#define testWritableProperty2NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(testPropName2, testPropValue2, 400, 19, TEST_DESCRIPTION_2)
+#define testWritableProperty2NoComponentJSON "{" testWritableProperty2NoComponentJSONNoBrace "}"
 
+#define testWritableProperty3NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(testPropName3, testPropValue3, 500, 77, TEST_DESCRIPTION_3)
+
+#define testWritableTwoPropertiesNoComponentJSONNoBrace testWritableProperty1NoComponentJSONNoBrace "," testWritableProperty2NoComponentJSONNoBrace
+#define testWritableTwoPropertiesNoComponentJSON "{" testWritableTwoPropertiesNoComponentJSONNoBrace "}"
+
+#define testWritableThreePropertiesNoComponentJSONNoBrace testWritableProperty1NoComponentJSONNoBrace "," testWritableProperty2NoComponentJSONNoBrace "," testWritableProperty3NoComponentJSONNoBrace
+#define testWritableThreePropertiesNoComponentJSON "{" testWritableThreePropertiesNoComponentJSONNoBrace "}"
 
 
 TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_success)
@@ -551,8 +550,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_success)
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
 
-    printf("expected=%s\n", testWritablePropertyNoComponentJSON);
-
     set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
 
     // act
@@ -560,8 +557,8 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_success)
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
-    ASSERT_ARE_EQUAL(char_ptr, testWritablePropertyNoComponentJSON, serializedProperties);
-    ASSERT_ARE_EQUAL(int, strlen(testWritablePropertyNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableProperty1NoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableProperty1NoComponentJSON), serializedPropertiesLength);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
@@ -574,44 +571,193 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_with_descri
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
 
-    printf("expected=%s\n", testWritablePropertyNoComponentJSON);
-
     set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
 
     // act
-    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableProp1, 1, NULL, &serializedProperties, &serializedPropertiesLength);
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableProp2, 1, NULL, &serializedProperties, &serializedPropertiesLength);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
-    ASSERT_ARE_EQUAL(char_ptr, testWritablePropertyNoComponentJSON, serializedProperties);
-    ASSERT_ARE_EQUAL(int, strlen(testWritablePropertyNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableProperty2NoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableProperty2NoComponentJSON), serializedPropertiesLength);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
 }
 
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_two_properties_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
 
+    const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableTwoProperties[] = { testWritableProp1, testWritableProp2 };
 
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
 
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(testWritableTwoProperties, 2, NULL, &serializedProperties, &serializedPropertiesLength);
 
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableTwoPropertiesNoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableTwoPropertiesNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
 
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_three_properties_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
 
+    const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableThreeProperties[] = { testWritableProp1, testWritableProp2, testWritableProp3 };
 
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
 
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(testWritableThreeProperties, 3, NULL, &serializedProperties, &serializedPropertiesLength);
 
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableThreePropertiesNoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableThreePropertiesNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
 
+static const char testWritableProperty1ComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testWritableProperty1NoComponentJSONNoBrace) "}";
+static const char testWritableProperty2ComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testWritableProperty2NoComponentJSONNoBrace) "}";
+static const char testWritableTwoPropertiesComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testWritableTwoPropertiesNoComponentJSONNoBrace) "}";
+static const char testWritableThreePropertiesComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testWritableThreePropertiesNoComponentJSONNoBrace) "}";
 
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_with_component_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
 
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
 
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableProp1, 1, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
 
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableProperty1ComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableProperty1ComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
 
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_with_description_with_component_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
 
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
 
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableProp2, 1, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
 
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableProperty2ComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableProperty2ComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_two_properties_with_component_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableTwoProperties[] = { testWritableProp1, testWritableProp2 };
+
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(testWritableTwoProperties, 2, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableTwoPropertiesComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableTwoPropertiesComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_three_properties_with_component_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableThreeProperties[] = { testWritableProp1, testWritableProp2, testWritableProp3 };
+
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(testWritableThreeProperties, 3, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testWritableThreePropertiesComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testWritableThreePropertiesComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_fail)
+{
+    // arrange
+    int negativeTestsInitResult = umock_c_negative_tests_init();
+    ASSERT_ARE_EQUAL(int, 0, negativeTestsInitResult);
+
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableThreeProperties[] = { testWritableProp1, testWritableProp2, testWritableProp3 };
+
+    set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse();
+    umock_c_negative_tests_snapshot();
+
+    // act
+    // act
+    size_t count = umock_c_negative_tests_call_count();
+    for (size_t index = 0; index < count; index++)
+    {
+        if (umock_c_negative_tests_can_call_fail(index))
+        {
+            umock_c_negative_tests_reset();
+            umock_c_negative_tests_fail_call(index);
+            
+            IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(testWritableThreeProperties, 3, NULL, &serializedProperties, &serializedPropertiesLength);
+
+            //assert
+            ASSERT_ARE_NOT_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+            ASSERT_IS_NULL(serializedProperties);
+            ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+        }
+    }
+}
 
 
 //
