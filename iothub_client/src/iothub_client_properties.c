@@ -265,7 +265,10 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIE
     if (result == IOTHUB_CLIENT_OK)
     {
         *serializedProperties = serializedPropertiesBuffer;
-        *serializedPropertiesLength = requiredBytes;
+        // We allocated an additional byte than we technically need so snprintf() could output null-terminator.
+        // The APIs this output pairs up with (e.g. IoTHubDeviceClient_LL_SendPropertiesAsync()) do not want
+        // this null-terminator since the bytes are memcpy'd directly to network.  So account for this here.
+        *serializedPropertiesLength = requiredBytes - 1;
     }
     else if (serializedPropertiesBuffer != NULL)
     {

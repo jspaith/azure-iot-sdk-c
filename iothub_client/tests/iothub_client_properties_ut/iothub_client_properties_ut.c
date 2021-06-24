@@ -141,15 +141,19 @@ TEST_FUNCTION(testTemplateForPropertyWriting)
 
 // TODO - move static data out of BEGIN_TEST_SUITE since certain msvc's don't like this.  Keep inline for now for convenience.
 
-static const char testPropName1[] = "name1";
-static const char testPropName2[] = "name2";
-static const char testPropName3[] = "name3";
-static const char testPropValue1[] = "value1";
-static const char testPropValue2[] = "value2";
-static const char testPropValue3[] = "value3";
+
+#define testPropName1 "name1"
+#define testPropName2 "name2"
+#define testPropName3 "name3"
+#define testPropValue1 "value1"
+#define testPropValue2 "value2"
+#define testPropValue3 "value3"
+
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp1 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, testPropValue1 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp2 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName2, testPropValue2 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp3 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName3, testPropValue3 };
 
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedWrongVersion = { 2, testPropName1, testPropValue1 };
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedPropOne = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, testPropValue1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLName = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, NULL, testPropValue1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLValue = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, NULL };
 
@@ -175,7 +179,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_serializedPropertie
     size_t serializedPropertiesLength = 0;
     
     // act
-    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedPropOne, 1, NULL, NULL, &serializedPropertiesLength);
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedProp1, 1, NULL, NULL, &serializedPropertiesLength);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
@@ -188,7 +192,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_serializedPropertie
     unsigned char* serializedProperties = NULL;
     
     // act
-    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedPropOne, 1, NULL, &serializedProperties, NULL);
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedProp1, 1, NULL, &serializedProperties, NULL);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
@@ -216,7 +220,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propname)
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
 
-    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNullNameThirdIndex[3] = { testReportedNULLName, testReportedNULLName, testReportedNULLName};
+    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNullNameThirdIndex[3] = { testReportedProp1, testReportedProp2, testReportedNULLName};
     
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedNullNameThirdIndex, 3, NULL, &serializedProperties, &serializedPropertiesLength);
@@ -233,7 +237,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propvalue)
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
 
-    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNullValueThirdIndex[3] = { testReportedNULLValue, testReportedNULLValue, testReportedNULLValue};
+    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNullValueThirdIndex[3] = { testReportedProp1, testReportedProp2, testReportedNULLValue};
     
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedNullValueThirdIndex, 3, NULL, &serializedProperties, &serializedPropertiesLength);
@@ -243,6 +247,74 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propvalue)
     ASSERT_IS_NULL(serializedProperties);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
 }
+
+#define BUILD_EXPECTED_JSON(n, v) "\""n"\":"v""
+
+static const char testReportedProp1NoComponentJSON[] = "{" BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "}";
+static const char testReportedTwoPropertiesNoComponentJSON[] = "{" BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2) "}";
+static const char testReportedThreePropertiesNoComponentJSON[] = "{" BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2) 
+                                                                   "," BUILD_EXPECTED_JSON(testPropName3, testPropValue3) "}";
+
+static const char testReportedProp3NoComponentJSON[] = BUILD_EXPECTED_JSON(testPropName3, testPropValue3);
+
+TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_one_property_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedProp1, 1, NULL, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testReportedProp1NoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testReportedProp1NoComponentJSON), serializedPropertiesLength);
+
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_two_properties_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[2] = { testReportedProp1, testReportedProp2};
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 2, NULL, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testReportedTwoPropertiesNoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testReportedTwoPropertiesNoComponentJSON), serializedPropertiesLength);
+
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[3] = { testReportedProp1, testReportedProp2, testReportedProp3};
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 3, NULL, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_ARE_EQUAL(char_ptr, testReportedThreePropertiesNoComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testReportedThreePropertiesNoComponentJSON), serializedPropertiesLength);
+
+    // free
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
 
 
 
