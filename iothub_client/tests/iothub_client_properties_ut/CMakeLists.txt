@@ -24,4 +24,4 @@ set(${theseTestsName}_h_files
     ${SHARED_UTIL_REAL_TEST_FOLDER}/real_crt_abstractions.c
 )
 
-build_c_test_artifacts(${theseTestsName} OFF "tests/azure_iothub_client_tests")
+build_c_test_artifacts(${theseTestsName} ON "tests/azure_iothub_client_tests")
