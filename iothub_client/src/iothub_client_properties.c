@@ -317,7 +317,8 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
     if (result == IOTHUB_CLIENT_OK)
     {
         *serializedProperties = serializedPropertiesBuffer;
-        *serializedPropertiesLength = requiredBytes;
+        // See comments in IoTHubClient_Serialize_ReportedProperties for background on why we substract one.
+        *serializedPropertiesLength = requiredBytes - 1;
     }
     else if (serializedPropertiesBuffer != NULL)
     {
