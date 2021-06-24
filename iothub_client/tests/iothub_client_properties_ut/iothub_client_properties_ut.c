@@ -158,7 +158,9 @@ static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedWrongVersion = { 2, tes
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLName = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, NULL, testPropValue1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLValue = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, NULL };
 
-
+//
+// IoTHubClient_Serialize_ReportedProperties tests
+//
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_properties)
 {
     // arrange
@@ -172,6 +174,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_properties)
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     ASSERT_IS_NULL(serializedProperties);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_serializedProperties)
@@ -185,6 +188,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_serializedPropertie
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_serializedPropertiesLength)
@@ -198,6 +202,8 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_serializedPropertie
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     ASSERT_IS_NULL(serializedProperties);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
 }
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_wrong_struct_version)
@@ -213,6 +219,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_wrong_struct_version)
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     ASSERT_IS_NULL(serializedProperties);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propname)
@@ -230,6 +237,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propname)
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     ASSERT_IS_NULL(serializedProperties);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propvalue)
@@ -247,22 +255,32 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propvalue)
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     ASSERT_IS_NULL(serializedProperties);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
 #define BUILD_EXPECTED_JSON(n, v) "\""n"\":"v""
 
-#define testReportedPropertyNoComponentJSON "{" BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "}"
-static const char testReportedTwoPropertiesNoComponentJSON[] = "{" BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2) "}";
-static const char testReportedThreePropertiesNoComponentJSON[] = "{" BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2) 
-                                                                   "," BUILD_EXPECTED_JSON(testPropName3, testPropValue3) "}";
+#define testReportedPropertyNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1)
+#define testReportedPropertyNoComponentJSON "{" testReportedPropertyNoComponentJSONNoBrace "}"
+#define testReportedTwoPropertiesNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2)
+#define testReportedTwoPropertiesNoComponentJSON "{" testReportedTwoPropertiesNoComponentJSONNoBrace "}"
+#define testReportedThreePropertiesNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2) "," BUILD_EXPECTED_JSON(testPropName3, testPropValue3)
+#define testReportedThreePropertiesNoComponentJSON  "{" testReportedThreePropertiesNoComponentJSONNoBrace "}"
 
 static const char testReportedProp3NoComponentJSON[] = BUILD_EXPECTED_JSON(testPropName3, testPropValue3);
+
+static void set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties()
+{
+    STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
+}
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_one_property_success)
 {
     // arrange
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
+
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
 
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedProp1, 1, NULL, &serializedProperties, &serializedPropertiesLength);
@@ -271,6 +289,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_one_property_success)
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
     ASSERT_ARE_EQUAL(char_ptr, testReportedPropertyNoComponentJSON, serializedProperties);
     ASSERT_ARE_EQUAL(int, strlen(testReportedPropertyNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
@@ -284,6 +303,8 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_two_properties_success)
 
     const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[] = { testReportedProp1, testReportedProp2};
 
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
+
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 2, NULL, &serializedProperties, &serializedPropertiesLength);
 
@@ -291,6 +312,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_two_properties_success)
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
     ASSERT_ARE_EQUAL(char_ptr, testReportedTwoPropertiesNoComponentJSON, serializedProperties);
     ASSERT_ARE_EQUAL(int, strlen(testReportedTwoPropertiesNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
@@ -304,6 +326,8 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success
 
     const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[] = { testReportedProp1, testReportedProp2, testReportedProp3};
 
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
+
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 3, NULL, &serializedProperties, &serializedPropertiesLength);
 
@@ -311,6 +335,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
     ASSERT_ARE_EQUAL(char_ptr, testReportedThreePropertiesNoComponentJSON, serializedProperties);
     ASSERT_ARE_EQUAL(int, strlen(testReportedThreePropertiesNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
@@ -321,13 +346,17 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success
 #define TEST_COMPONENT_MARKER(componentName) "{\""componentName"\":{\"__t\":\"c\""
 #define TEST_COMPONENT_JSON(componentName, expectedProperties) TEST_COMPONENT_MARKER(componentName) "," expectedProperties "}"
 
-static const char testReportedPropertyComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedPropertyNoComponentJSON);
+static const char testReportedPropertyComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedPropertyNoComponentJSONNoBrace) "}";
+static const char testReportedTwoPropertiesComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedTwoPropertiesNoComponentJSONNoBrace) "}";
+static const char testReportedThreePropertiesComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedThreePropertiesNoComponentJSONNoBrace) "}";
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_one_property_with_component_success)
 {
     // arrange
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
+
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
 
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedProp1, 1, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
@@ -336,6 +365,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_one_property_with_compon
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
     ASSERT_ARE_EQUAL(char_ptr, testReportedPropertyComponentJSON, serializedProperties);
     ASSERT_ARE_EQUAL(int, strlen(testReportedPropertyComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
@@ -349,13 +379,16 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_two_properties_with_comp
 
     const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[] = { testReportedProp1, testReportedProp2};
 
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
+
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 2, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
-    ASSERT_ARE_EQUAL(char_ptr, testReportedTwoPropertiesNoComponentJSON, serializedProperties);
-    ASSERT_ARE_EQUAL(int, strlen(testReportedTwoPropertiesNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, testReportedTwoPropertiesComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testReportedTwoPropertiesComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
@@ -369,16 +402,140 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_with_co
 
     const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedTwoProperties[] = { testReportedProp1, testReportedProp2, testReportedProp3};
 
+    set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties();
+
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedTwoProperties, 3, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
-    ASSERT_ARE_EQUAL(char_ptr, testReportedThreePropertiesNoComponentJSON, serializedProperties);
-    ASSERT_ARE_EQUAL(int, strlen(testReportedThreePropertiesNoComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, testReportedThreePropertiesComponentJSON, serializedProperties);
+    ASSERT_ARE_EQUAL(int, strlen(testReportedThreePropertiesComponentJSON), serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // free
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+}
+
+
+//
+// IoTHubClient_Serialize_WritablePropertyResponse tests
+// 
+static void set_expected_calls_for_IoTHubClient_Serialize_WritablePropertyResponse()
+{
+    STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
+}
+
+//
+// IoTHubClient_Serialize_ReportedProperties test
+//
+TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_NULL_properties)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+    
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(NULL, 1, NULL, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
+    ASSERT_IS_NULL(serializedProperties);
+    ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+}
+
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp1 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, testPropName1, testPropValue1, 200, 1, NULL };
+
+TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_NULL_serializedProperties)
+{
+    // arrange
+    size_t serializedPropertiesLength = 0;
+    
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableProp1, 1, NULL, NULL, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
+    ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_NULL_serializedPropertiesLength)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableProp1, 1, NULL, &serializedProperties, NULL);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
+    ASSERT_IS_NULL(serializedProperties);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+}
+
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableWrongVersion = { 2, testPropName1, testPropValue1, 200, 1, NULL };
+
+TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_wrong_struct_version)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+    
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_WritablePropertyResponse(&testWritableWrongVersion, 1, NULL, &serializedProperties, &serializedPropertiesLength);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
+    ASSERT_IS_NULL(serializedProperties);
+    ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+}
+
+
+
+
+
+
+//
+// IoTHubClient_Serialize_Properties_Destroy tests
+// 
+static void set_expected_calls_for_IoTHubClient_Serialize_Properties_Destroy()
+{
+    STRICT_EXPECTED_CALL(gballoc_free(IGNORED_PTR_ARG));
+}
+
+TEST_FUNCTION(IoTHubClient_Serialize_Properties_Destroy_success)
+{
+    // arrange
+    unsigned char* serializedProperties = NULL;
+    size_t serializedPropertiesLength = 0;
+
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(&testReportedProp1, 1, TEST_COMPONENT_NAME_1, &serializedProperties, &serializedPropertiesLength);
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_IS_NOT_NULL(serializedPropertiesLength);
+
+    umock_c_reset_all_calls();
+    set_expected_calls_for_IoTHubClient_Serialize_Properties_Destroy();
+
+    // act
+    IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
+
+
+    // Assert
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+}
+
+
+TEST_FUNCTION(IoTHubClient_Serialize_Properties_Destroy_null)
+{
+    // act
+    IoTHubClient_Serialize_Properties_Destroy(NULL);
+
+    // Assert
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
 
