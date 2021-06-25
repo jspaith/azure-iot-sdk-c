@@ -351,7 +351,7 @@ static char* CopyPayloadToString(const unsigned char* payload, size_t size)
     char* jsonStr;
     size_t sizeToAllocate = size + 1;
 
-    if ((jsonStr = (char*)malloc(sizeToAllocate)) == NULL)
+    if ((jsonStr = (char*)calloc(1, sizeToAllocate)) == NULL)
     {
         LogError("Unable to allocate %lu size buffer", (unsigned long)(sizeToAllocate));
     }
