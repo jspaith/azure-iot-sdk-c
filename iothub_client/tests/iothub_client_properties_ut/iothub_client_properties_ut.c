@@ -57,6 +57,7 @@ extern "C"
     MOCKABLE_FUNCTION(, JSON_Value*, json_object_get_value, const JSON_Object *, object, const char *, name);
     MOCKABLE_FUNCTION(, void, json_value_free, JSON_Value*, value);
     MOCKABLE_FUNCTION(, JSON_Value_Type, json_value_get_type, const JSON_Value *, value);
+    MOCKABLE_FUNCTION(, JSON_Object*, json_object_get_object, const JSON_Object *, object, const char*, name);
 #ifdef __cplusplus
 }
 #endif
@@ -119,6 +120,11 @@ TEST_SUITE_INITIALIZE(suite_init)
 
     REGISTER_GLOBAL_MOCK_HOOK(json_value_get_type, real_json_value_get_type);
     REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_value_get_type, JSONError);
+
+    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_object, real_json_object_get_object);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_object_get_object, NULL);
+
+    
 
     REGISTER_TYPE(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_RESULT);
 }
@@ -333,7 +339,10 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
 }
 
-#define TEST_COMPONENT_NAME_1 "testComponent"
+#define TEST_COMPONENT_NAME_1 "testComponent1"
+#define TEST_COMPONENT_NAME_2 "testComponent2"
+#define TEST_COMPONENT_NAME_3 "testComponent3"
+
 
 #define TEST_COMPONENT_MARKER(componentName) "{\""componentName"\":{\"__t\":\"c\""
 #define TEST_COMPONENT_JSON(componentName, expectedProperties) TEST_COMPONENT_MARKER(componentName) "," expectedProperties "}"
@@ -424,7 +433,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_fail)
     umock_c_negative_tests_snapshot();
 
     // act
-    // act
     size_t count = umock_c_negative_tests_call_count();
     for (size_t index = 0; index < count; index++)
     {
@@ -442,7 +450,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_fail)
         }
     }
 }
-
 
 //
 // IoTHubClient_Serialize_WritablePropertyResponse tests
@@ -758,7 +765,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_fail)
     umock_c_negative_tests_snapshot();
 
     // act
-    // act
     size_t count = umock_c_negative_tests_call_count();
     for (size_t index = 0; index < count; index++)
     {
@@ -801,7 +807,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_Properties_Destroy_success)
     // act
     IoTHubClient_Serialize_Properties_Destroy(serializedProperties);
 
-
     // assert
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
@@ -819,16 +824,26 @@ TEST_FUNCTION(IoTHubClient_Serialize_Properties_Destroy_null)
 //
 // IoTHubClient_Deserialize_Properties_CreateIterator tests
 //
-static void set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType)
+static void set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, size_t numComponents)
 {
     STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
+
+    if (numComponents != 0)
+    {
+        STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
+        for (size_t i = 0; i < numComponents; i++)
+        {
+            STRICT_EXPECTED_CALL(mallocAndStrcpy_s(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
+        }
+    }
+
     STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
     STRICT_EXPECTED_CALL(json_parse_string(IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(json_value_get_object(IGNORED_PTR_ARG));
     if (payloadType == IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL)
     {
-        STRICT_EXPECTED_CALL(json_value_get_object(IGNORED_PTR_ARG));
-        STRICT_EXPECTED_CALL(json_value_get_object(IGNORED_PTR_ARG));
+        STRICT_EXPECTED_CALL(json_object_get_object(IGNORED_PTR_ARG, IGNORED_PTR_ARG)).CallCannotFail();
+        STRICT_EXPECTED_CALL(json_object_get_object(IGNORED_PTR_ARG, IGNORED_PTR_ARG)).CallCannotFail();;
     }
     STRICT_EXPECTED_CALL(json_object_get_value(IGNORED_PTR_ARG, IGNORED_PTR_ARG));
     STRICT_EXPECTED_CALL(json_value_get_type(IGNORED_PTR_ARG));
@@ -845,6 +860,18 @@ static const size_t TEST_JSON_ONE_PROPERTY_ALL_LEN = sizeof(TEST_JSON_ONE_PROPER
 
 static unsigned const char TEST_JSON_ONE_PROPERTY_WRITABLE[] = "{" TEST_DESIRED_PAYLOAD "," TEST_JSON_TWIN_VER_1 "}";
 static const size_t TEST_JSON_ONE_PROPERTY_WRITABLE_LEN = sizeof(TEST_JSON_ONE_PROPERTY_WRITABLE) - 1;
+
+static unsigned const char TEST_INVALID_JSON[] = "}{-not-valid";
+static const size_t TEST_INVALID_JSON_LEN = sizeof(TEST_INVALID_JSON) - 1;
+
+// Legal JSON including $version, but for an ALL json its missing the desired.  Creating iterator will be OK with this won't have anything to enumerate
+static unsigned const char TEST_JSON_NO_DESIRED[] = "{ " TEST_JSON_TWIN_VER_1 " }";
+static const size_t TEST_JSON_NO_DESIRED_LEN = sizeof(TEST_INVALID_JSON) - 1;
+
+// Legal JSON but no $Version.  Creating iterator won't allow this.
+static unsigned const char TEST_JSON_NO_VERSION[] = "44";
+static const size_t TEST_JSON_NO_VERSION_LEN = sizeof(TEST_INVALID_JSON) - 1;
+
 
 TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_invalid_payload_type)
 {
@@ -898,7 +925,7 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_all_success)
 {
     // arrange
     IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = NULL;
-    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL);
+    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, 0);
 
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_ALL, TEST_JSON_ONE_PROPERTY_ALL_LEN, NULL, 0, &h);
@@ -906,6 +933,29 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_all_success)
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
     ASSERT_IS_NOT_NULL(h);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    // cleanup
+    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
+}
+
+static const char* TEST_COMPONENT_LIST[] = {TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2, TEST_COMPONENT_NAME_3};
+static const size_t TEST_COMPONENT_LIST_LEN = sizeof(TEST_COMPONENT_LIST) / sizeof(TEST_COMPONENT_LIST[0]);
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_all_with_components_success)
+{
+    // arrange
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = NULL;
+    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_COMPONENT_LIST_LEN);
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_ALL, TEST_JSON_ONE_PROPERTY_ALL_LEN, 
+                                                                                     TEST_COMPONENT_LIST, TEST_COMPONENT_LIST_LEN, &h);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_IS_NOT_NULL(h);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup
     IoTHubClient_Deserialize_Properties_DestroyIterator(h);
@@ -915,7 +965,7 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_writable_succes
 {
     // arrange
     IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = NULL;
-    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES);
+    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES, 0);
 
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES, TEST_JSON_ONE_PROPERTY_WRITABLE, TEST_JSON_ONE_PROPERTY_WRITABLE_LEN, NULL, 0, &h);
@@ -923,9 +973,83 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_writable_succes
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
     ASSERT_IS_NOT_NULL(h);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 
     // cleanup
     IoTHubClient_Deserialize_Properties_DestroyIterator(h);
 }
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_writable_with_components_success)
+{
+    // arrange
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = NULL;
+    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES, TEST_COMPONENT_LIST_LEN);
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES, TEST_JSON_ONE_PROPERTY_WRITABLE, TEST_JSON_ONE_PROPERTY_WRITABLE_LEN, 
+                                                                                     TEST_COMPONENT_LIST, TEST_COMPONENT_LIST_LEN, &h);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+    ASSERT_IS_NOT_NULL(h);
+    ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+    // cleanup
+    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
+}
+
+
+static void test_IoTHubClient_Deserialize_Properties_CreateIterator_invalid_json(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, const unsigned char* invalidJson, size_t invalidJsonLen)
+{
+    // arrange
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = NULL;
+
+    // act
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_CreateIterator(payloadType, invalidJson, invalidJsonLen, NULL, 0, &h);
+
+    // assert
+    ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_ERROR, result);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_writable_invalid_JSON_fail)
+{
+    test_IoTHubClient_Deserialize_Properties_CreateIterator_invalid_json(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_INVALID_JSON, TEST_INVALID_JSON_LEN);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_writable_missing_version_fail)
+{
+    test_IoTHubClient_Deserialize_Properties_CreateIterator_invalid_json(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_NO_VERSION, TEST_JSON_NO_VERSION_LEN);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_fail)
+{
+    // arrange
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = NULL;
+
+    int negativeTestsInitResult = umock_c_negative_tests_init();
+    ASSERT_ARE_EQUAL(int, 0, negativeTestsInitResult);
+
+    set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_COMPONENT_LIST_LEN);
+    umock_c_negative_tests_snapshot();
+
+    // act
+    size_t count = umock_c_negative_tests_call_count();
+    for (size_t index = 0; index < count; index++)
+    {
+        if (umock_c_negative_tests_can_call_fail(index))
+        {
+            umock_c_negative_tests_reset();
+            umock_c_negative_tests_fail_call(index);
+            
+            IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_ALL, TEST_JSON_ONE_PROPERTY_ALL_LEN, 
+                                                                                             TEST_COMPONENT_LIST, TEST_COMPONENT_LIST_LEN, &h);
+
+            //assert
+            ASSERT_ARE_NOT_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+            ASSERT_IS_NULL(h);
+        }
+    }
+}
+
 
 END_TEST_SUITE(iothub_client_properties_ut)

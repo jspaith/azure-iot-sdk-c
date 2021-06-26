@@ -854,9 +854,14 @@ void IoTHubClient_Deserialize_Properties_DestroyIterator(IOTHUB_CLIENT_PROPERTY_
     if (propertyIteratorHandle != NULL)
     {
         IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator = (IOTHUB_CLIENT_PROPERTY_ITERATOR*)propertyIteratorHandle;
-        for (size_t i = 0; i < propertyIterator->numComponentsInModel; i++)
+
+        if (propertyIterator->componentsInModel != NULL)
         {
-            free(propertyIterator->componentsInModel[i]);
+            for (size_t i = 0; i < propertyIterator->numComponentsInModel; i++)
+            {
+                free(propertyIterator->componentsInModel[i]);
+            }
+            free(propertyIterator->componentsInModel);
         }
         json_value_free(propertyIterator->rootValue);
         free(propertyIterator);
