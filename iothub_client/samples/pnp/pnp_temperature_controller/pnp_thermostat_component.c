@@ -286,7 +286,7 @@ static void SendTargetTemperatureResponse(PNP_THERMOSTAT_COMPONENT* pnpThermosta
     temperatureProperty.value = targetTemperatureAsString;
     temperatureProperty.description = description;
 
-    unsigned char* propertySerialized;
+    unsigned char* propertySerialized = NULL;
     size_t propertySerializedLength;
 
     // The first step of reporting properties is to serialize IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE into JSON for sending.

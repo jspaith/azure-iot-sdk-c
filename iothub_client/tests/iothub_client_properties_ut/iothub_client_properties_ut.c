@@ -140,21 +140,20 @@ TEST_FUNCTION_CLEANUP(TestMethodCleanup)
 }
 
 // TODO - move static data out of BEGIN_TEST_SUITE since certain msvc's don't like this.  Keep inline for now for convenience.
-// TODO - testPropName1 => TEST_PROP_NAME1 or following convention now this is a #define
-#define testPropName1 "name1"
-#define testPropName2 "name2"
-#define testPropName3 "name3"
-#define testPropValue1 "1234"
-#define testPropValue2 "\"value2\""
-#define testPropValue3 "{\"embeddedJSON\": 123}"
+#define TEST_PROP_NAME1 "name1"
+#define TEST_PROP_NAME2 "name2"
+#define TEST_PROP_NAME3 "name3"
+#define TEST_PROP_VALUE1 "1234"
+#define TEST_PROP_VALUE2 "\"value2\""
+#define TEST_PROP_VALUE3 "{\"embeddedJSON\": 123}"
 
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp1 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, testPropValue1 };
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp2 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName2, testPropValue2 };
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp3 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName3, testPropValue3 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp1 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME1, TEST_PROP_VALUE1 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp2 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME2, TEST_PROP_VALUE2 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp3 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME3, TEST_PROP_VALUE3 };
 
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedWrongVersion = { 2, testPropName1, testPropValue1 };
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLName = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, NULL, testPropValue1 };
-static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLValue = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, testPropName1, NULL };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedWrongVersion = { 2, TEST_PROP_NAME1, TEST_PROP_VALUE1 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLName = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, NULL, TEST_PROP_VALUE1 };
+static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNULLValue = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME1, NULL };
 
 //
 // IoTHubClient_Serialize_ReportedProperties tests
@@ -258,14 +257,14 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propvalue)
 
 #define BUILD_EXPECTED_JSON(n, v) "\""n"\":"v""
 
-#define testReportedPropertyNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1)
+#define testReportedPropertyNoComponentJSONNoBrace BUILD_EXPECTED_JSON(TEST_PROP_NAME1, TEST_PROP_VALUE1)
 #define testReportedPropertyNoComponentJSON "{" testReportedPropertyNoComponentJSONNoBrace "}"
-#define testReportedTwoPropertiesNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2)
+#define testReportedTwoPropertiesNoComponentJSONNoBrace BUILD_EXPECTED_JSON(TEST_PROP_NAME1, TEST_PROP_VALUE1) "," BUILD_EXPECTED_JSON(TEST_PROP_NAME2, TEST_PROP_VALUE2)
 #define testReportedTwoPropertiesNoComponentJSON "{" testReportedTwoPropertiesNoComponentJSONNoBrace "}"
-#define testReportedThreePropertiesNoComponentJSONNoBrace BUILD_EXPECTED_JSON(testPropName1, testPropValue1) "," BUILD_EXPECTED_JSON(testPropName2, testPropValue2) "," BUILD_EXPECTED_JSON(testPropName3, testPropValue3)
+#define testReportedThreePropertiesNoComponentJSONNoBrace BUILD_EXPECTED_JSON(TEST_PROP_NAME1, TEST_PROP_VALUE1) "," BUILD_EXPECTED_JSON(TEST_PROP_NAME2, TEST_PROP_VALUE2) "," BUILD_EXPECTED_JSON(TEST_PROP_NAME3, TEST_PROP_VALUE3)
 #define testReportedThreePropertiesNoComponentJSON  "{" testReportedThreePropertiesNoComponentJSONNoBrace "}"
 
-static const char testReportedProp3NoComponentJSON[] = BUILD_EXPECTED_JSON(testPropName3, testPropValue3);
+static const char testReportedProp3NoComponentJSON[] = BUILD_EXPECTED_JSON(TEST_PROP_NAME3, TEST_PROP_VALUE3);
 
 static void set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties(void)
 {
@@ -489,19 +488,19 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_NULL_properties)
 #define TEST_DESCRIPTION_2 "2-description"
 #define TEST_DESCRIPTION_3 "3-description"
 
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableWrongVersion = { 2, testPropName1, testPropValue1, 
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableWrongVersion = { 2, TEST_PROP_NAME1, TEST_PROP_VALUE1, 
                                                                                    TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL};
 
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp1 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, testPropName1, testPropValue1, 
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp1 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME1, TEST_PROP_VALUE1, 
                                                                    TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL };
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp2 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, testPropName2, testPropValue2, 
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp2 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME2, TEST_PROP_VALUE2, 
                                                                    TEST_STATUS_CODE_2, TEST_ACK_CODE_2, TEST_DESCRIPTION_2 };
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp3 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, testPropName3, testPropValue3, 
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableProp3 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME3, TEST_PROP_VALUE3, 
                                                                    TEST_STATUS_CODE_3, TEST_ACK_CODE_3, TEST_DESCRIPTION_3 };
 
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableNULLName =  { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, NULL, testPropValue1, 
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableNULLName =  { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, NULL, TEST_PROP_VALUE1, 
                                                                       TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL };
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableNULLValue = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, testPropName1, NULL,
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE testWritableNULLValue = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME1, NULL,
                                                                       TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL };
 
 TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_NULL_serializedProperties)
@@ -554,13 +553,13 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_wrong_struct_versi
 #define BUILD_EXPECTED_WRITABLE_JSON(name, val, code, version) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version "}"
 #define BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(name, val, code, version, description) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version ",\"ad\":\"" description "\"}"
 
-#define testWritableProperty1NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON(testPropName1, testPropValue1, 200, 1)
+#define testWritableProperty1NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON(TEST_PROP_NAME1, TEST_PROP_VALUE1, 200, 1)
 #define testWritableProperty1NoComponentJSON "{" testWritableProperty1NoComponentJSONNoBrace "}"
 
-#define testWritableProperty2NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(testPropName2, testPropValue2, 400, 19, TEST_DESCRIPTION_2)
+#define testWritableProperty2NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(TEST_PROP_NAME2, TEST_PROP_VALUE2, 400, 19, TEST_DESCRIPTION_2)
 #define testWritableProperty2NoComponentJSON "{" testWritableProperty2NoComponentJSONNoBrace "}"
 
-#define testWritableProperty3NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(testPropName3, testPropValue3, 500, 77, TEST_DESCRIPTION_3)
+#define testWritableProperty3NoComponentJSONNoBrace BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(TEST_PROP_NAME3, TEST_PROP_VALUE3, 500, 77, TEST_DESCRIPTION_3)
 
 #define testWritableTwoPropertiesNoComponentJSONNoBrace testWritableProperty1NoComponentJSONNoBrace "," testWritableProperty2NoComponentJSONNoBrace
 #define testWritableTwoPropertiesNoComponentJSON "{" testWritableTwoPropertiesNoComponentJSONNoBrace "}"
@@ -853,7 +852,7 @@ static void set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIte
 
 #define TEST_JSON_TWIN_VER_1  "\"$version\":1"
 
-#define TEST_DESIRED_PAYLOAD "\""  testPropName1 "\":" testPropValue1
+#define TEST_DESIRED_PAYLOAD "\""  TEST_PROP_NAME1 "\":" TEST_PROP_VALUE1
 
 static unsigned const char TEST_JSON_ONE_PROPERTY_ALL[] = "{ \"desired\": { " TEST_DESIRED_PAYLOAD "," TEST_JSON_TWIN_VER_1 "} }";
 static const size_t TEST_JSON_ONE_PROPERTY_ALL_LEN = sizeof(TEST_JSON_ONE_PROPERTY_ALL) - 1;
