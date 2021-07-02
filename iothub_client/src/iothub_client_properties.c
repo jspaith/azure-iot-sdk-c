@@ -485,10 +485,11 @@ static IOTHUB_CLIENT_PROPERTY_ITERATOR* AllocatePropertyIterator(const char** co
                 if (mallocAndStrcpy_s(&propertyIterator->componentsInModel[i], componentsInModel[i]) != 0)
                 {
                     LogError("Cannot allocate IOTHUB_CLIENT_PROPERTY_ITERATOR");
+                    break;
                 }
             }
 
-            success =  (i == numComponentsInModel);
+            success = (i == numComponentsInModel);
         }
     }
 
@@ -767,7 +768,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetVersion(
     IOTHUB_CLIENT_PROPERTY_ITERATOR* propertyIterator = (IOTHUB_CLIENT_PROPERTY_ITERATOR*)propertyIteratorHandle;
     IOTHUB_CLIENT_RESULT result;
 
-    if (propertyIteratorHandle == NULL)
+    if ((propertyIteratorHandle == NULL) || (propertiesVersion == NULL))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
