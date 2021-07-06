@@ -794,7 +794,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Deserialize_Properties_GetNextProperty(
     const char* propertyName = NULL;
     const char* componentName = NULL;
 
-    if ((propertyIteratorHandle == NULL) || (property == NULL) || (propertySpecified == NULL))
+    if ((propertyIteratorHandle == NULL) || (property == NULL) || (propertySpecified == NULL) || (property->structVersion != IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
