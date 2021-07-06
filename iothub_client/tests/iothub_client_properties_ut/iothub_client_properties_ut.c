@@ -124,7 +124,8 @@ TEST_SUITE_INITIALIZE(suite_init)
     REGISTER_GLOBAL_MOCK_HOOK(json_object_get_object, real_json_object_get_object);
     REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_object_get_object, NULL);
 
-    
+    REGISTER_GLOBAL_MOCK_HOOK(mallocAndStrcpy_s, real_mallocAndStrcpy_s);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(mallocAndStrcpy_s, MU_FAILURE);
 
     REGISTER_TYPE(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_RESULT);
 }
@@ -146,6 +147,8 @@ TEST_FUNCTION_CLEANUP(TestMethodCleanup)
 #define TEST_PROP_VALUE1 "1234"
 #define TEST_PROP_VALUE2 "\"value2\""
 #define TEST_PROP_VALUE3 "{\"embeddedJSON\": 123}"
+
+#define TEST_PROP_VALUE1_LEN (sizeof(TEST_PROP_VALUE1) / sizeof(TEST_PROP_VALUE1[0]) - 1)
 
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp1 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME1, TEST_PROP_VALUE1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedProp2 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME2, TEST_PROP_VALUE2 };
@@ -1007,8 +1010,6 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_writable_missin
     test_IoTHubClient_Deserialize_Properties_CreateIterator_invalid_json(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_NO_VERSION, TEST_JSON_NO_VERSION_LEN);
 }
 
-#if 0
-// TODO - come back to this
 TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_fail)
 {
     // arrange
@@ -1019,8 +1020,6 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_fail)
 
     set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_COMPONENT_LIST_LEN);
     umock_c_negative_tests_snapshot();
-
-    printf("Expected:: %s\n", umockcallrecorder_get_expected_calls(umock_c_get_call_recorder()));
 
     // act
     size_t count = umock_c_negative_tests_call_count();
@@ -1042,7 +1041,6 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_fail)
         }
     }
 }
-#endif
 
 //
 // IoTHubClient_Deserialize_Properties_GetVersion tests
@@ -1094,7 +1092,7 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetVersion_writable_update_suc
     ASSERT_ARE_EQUAL(int, TEST_TWIN_VER_2, propertiesVersion);
 
     // cleanup
-    IoTHubClient_Deserialize_Properties_DestroyIterator(h);    
+    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
 }
 
 TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetVersion_full_twin_success)
@@ -1111,12 +1109,85 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetVersion_full_twin_success)
     ASSERT_ARE_EQUAL(int, TEST_TWIN_VER_1, propertiesVersion);
 
     // cleanup
-    IoTHubClient_Deserialize_Properties_DestroyIterator(h);    
+    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
 }
 
 //
 // IoTHubClient_Deserialize_Properties_GetNextProperty tests
 //
+
+// TODO: not consistent casing between like ResetTestProperty && set_expected_...
+static void ResetTestProperty(IOTHUB_CLIENT_DESERIALIZED_PROPERTY* property)
+{
+    memset(property, 0, sizeof(*property));
+    property->structVersion = IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1;
+}
+
+static void CompareProperties(const IOTHUB_CLIENT_DESERIALIZED_PROPERTY* expectedProperty, IOTHUB_CLIENT_DESERIALIZED_PROPERTY* actualProperty)
+{
+    ASSERT_ARE_EQUAL(int, actualProperty->structVersion, expectedProperty->structVersion);
+    ASSERT_ARE_EQUAL(int, (int)actualProperty->propertyType, expectedProperty->propertyType);
+    ASSERT_ARE_EQUAL(char_ptr, actualProperty->componentName, expectedProperty->componentName);
+    ASSERT_ARE_EQUAL(char_ptr, actualProperty->name, expectedProperty->name);
+    ASSERT_ARE_EQUAL(int, (int)actualProperty->valueType, (int)expectedProperty->valueType);
+    ASSERT_ARE_EQUAL(char_ptr, actualProperty->value.str, expectedProperty->value.str);
+    ASSERT_ARE_EQUAL(int, actualProperty->valueLength, expectedProperty->valueLength);
+}
+
+static IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedProperty1 = {
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
+    IOTHUB_CLIENT_PROPERTY_TYPE_WRITABLE,
+    NULL,
+    TEST_PROP_NAME1,
+    IOTHUB_CLIENT_PROPERTY_VALUE_STRING,
+    { .str = TEST_PROP_VALUE1 },
+    TEST_PROP_VALUE1_LEN
+};
+
+static void TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, const unsigned char* payload, size_t payloadLength, const char** componentsInModel, size_t numComponentsInModel,
+                                       const IOTHUB_CLIENT_DESERIALIZED_PROPERTY* expectedProperties, size_t numExpectedProperties)
+{
+    // arrange
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = TestAllocatePropertyIterator(payloadType, payload, payloadLength, componentsInModel, numComponentsInModel);
+    size_t numPropertiesVisited = 0;
+
+    // act|assert
+
+    while (true)
+    {
+        IOTHUB_CLIENT_DESERIALIZED_PROPERTY property;
+        bool propertySpecified;
+        ResetTestProperty(&property);
+
+        IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_GetNextProperty(h, &property, &propertySpecified);
+        ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+
+        if (numPropertiesVisited == numExpectedProperties)
+        {
+            // Last time through enumeration loop we should be donee.
+            ASSERT_IS_FALSE(propertySpecified);
+            break;
+        }
+        ASSERT_IS_TRUE(propertySpecified);
+
+        CompareProperties(expectedProperties + numPropertiesVisited, &property);
+
+        IoTHubClient_Deserialize_Properties_DestroyProperty(&property);
+        numPropertiesVisited++;
+    }
+
+    // cleanup
+    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
+
+}
+
+// Test only to just skip STRICT_EXPECT work
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_success)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY* expectedPropList = { &expectedProperty1 };
+
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_ALL, TEST_JSON_ONE_PROPERTY_ALL_LEN, NULL, 0, expectedPropList, 1);
+}
 
 //
 // IoTHubClient_Deserialize_Properties_DestroyProperty tests

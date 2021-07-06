@@ -269,7 +269,7 @@ extern "C"
                     const char* commandName,
                     const unsigned char* payload,              
                     size_t size,
-                    const char* payloadContentType,
+                    const char* payloadContentType, // TODO - this should be a NULL and only non-NULL if server ever sets this.
                     unsigned char** response,
                     size_t* responseSize,
                     void* userContextCallback);
