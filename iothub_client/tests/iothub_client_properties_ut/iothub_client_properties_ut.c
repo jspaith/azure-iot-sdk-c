@@ -12,6 +12,11 @@
 #include <stdint.h>
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(disable: 4204) /* Allows initialization of arrays with non-consts */
+#endif
+
+
 static void* my_gballoc_malloc(size_t size)
 {
     return malloc(size);
@@ -240,7 +245,7 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propname)
     unsigned char* serializedProperties = NULL;
     size_t serializedPropertiesLength = 0;
 
-    const IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNullNameThirdIndex[] = { testReportedProp1, testReportedProp2, testReportedNULLName};
+    IOTHUB_CLIENT_REPORTED_PROPERTY testReportedNullNameThirdIndex[3] = { testReportedProp1, testReportedProp2, testReportedNULLName};
     
     // act
     IOTHUB_CLIENT_RESULT result = IoTHubClient_Serialize_ReportedProperties(testReportedNullNameThirdIndex, 3, NULL, &serializedProperties, &serializedPropertiesLength);
@@ -361,10 +366,12 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success
 #define TEST_COMPONENT_NAME_6 "testComponent6"
 
 static const char* TEST_COMPONENT_LIST1[] = { TEST_COMPONENT_NAME_1 };
-static const char* TEST_COMPONENT_LIST1_2[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2  };
-static const char* TEST_COMPONENT_LIST1_2_3[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2, TEST_COMPONENT_NAME_3  };
+static const char* TEST_COMPONENT_LIST1_2[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2 };
+static const char* TEST_COMPONENT_LIST1_2_3[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2, TEST_COMPONENT_NAME_3 };
 static const char* TEST_COMPONENT_LIST4[] = { TEST_COMPONENT_NAME_4 };
-
+static const char* TEST_COMPONENT_LIST4_5[] = { TEST_COMPONENT_NAME_4, TEST_COMPONENT_NAME_5 };
+static const char* TEST_COMPONENT_LIST4_5_6[] = { TEST_COMPONENT_NAME_4, TEST_COMPONENT_NAME_5, TEST_COMPONENT_NAME_6 };
+static const char* TEST_COMPONENT_LIST1_6[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2, TEST_COMPONENT_NAME_3, TEST_COMPONENT_NAME_4, TEST_COMPONENT_NAME_5, TEST_COMPONENT_NAME_6 };
 
 
 // TODO: These #define string builders need more commentary.
@@ -932,12 +939,23 @@ static unsigned const char TEST_JSON_TWO_REPORTED_UPDATE_PROPERTIES_ALL[] =TEST_
 static unsigned const char TEST_JSON_THREE_REPORTED_UPDATE_PROPERTIES_ALL[] = TEST_BUILD_REPORTED_AND_DESIRED(TEST_JSON_NAME_VALUE4_5_6, TEST_JSON_NAME_VALUE1_2_3, TEST_JSON_TWIN_VER_1);
 
 #define TEST_JSON_COMPONENT1_NAME_VALUE1 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_1, TEST_JSON_NAME_VALUE1)
+#define TEST_JSON_COMPONENT2_NAME_VALUE2 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_2, TEST_JSON_NAME_VALUE2)
+#define TEST_JSON_COMPONENT3_NAME_VALUE3 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_3, TEST_JSON_NAME_VALUE3)
+
+#define TEST_JSON_COMPONENT4_NAME_VALUE4 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4)
+#define TEST_JSON_COMPONENT5_NAME_VALUE5 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_5, TEST_JSON_NAME_VALUE5)
+#define TEST_JSON_COMPONENT6_NAME_VALUE6 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_6, TEST_JSON_NAME_VALUE6)
+
+
 #define TEST_JSON_COMPONENT1_NAME_VALUE1_2 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_1, TEST_JSON_NAME_VALUE1_2)
 #define TEST_JSON_COMPONENT1_NAME_VALUE1_2_3  TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_1, TEST_JSON_NAME_VALUE1_2_3)
 #define TEST_JSON_COMPONENT1_NAME_VALUE4 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4)
 #define TEST_JSON_COMPONENT1_NAME_VALUE4_5 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4_5)
 #define TEST_JSON_COMPONENT1_NAME_VALUE4_5_6 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4_5_6)
-    
+
+
+
+
 static unsigned const char TEST_JSON_ONE_PROPERTY_COMPONENT_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
 static unsigned const char TEST_JSON_ONE_PROPERTY_COMPONENT_WRITABLE[] = TEST_BUILD_DESIRED_UPDATE(TEST_JSON_COMPONENT1_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
 static unsigned const char TEST_JSON_TWO_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1_2, TEST_JSON_TWIN_VER_1);
@@ -946,6 +964,17 @@ static unsigned const char TEST_JSON_THREE_PROPERTIES_COMPONENT_ALL[] = TEST_BUI
 static unsigned const char TEST_JSON_ONE_REPORTED_PROPERTY_COMPONENT_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT1_NAME_VALUE4, TEST_JSON_TWIN_VER_1);
 static unsigned const char TEST_JSON_TWO_REPORTED_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT1_NAME_VALUE4_5, TEST_JSON_TWIN_VER_1);
 static unsigned const char TEST_JSON_THREE_REPORTED_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT1_NAME_VALUE4_5_6, TEST_JSON_TWIN_VER_1);
+
+static unsigned const char TEST_JSON_TWO_UDPATE_PROPERTIES_TWO_COMPONENTS_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1 "," TEST_JSON_COMPONENT2_NAME_VALUE2, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_TWO_UDPATE_PROPERTIES_THREE_COMPONENTS_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1 "," TEST_JSON_COMPONENT2_NAME_VALUE2 "," TEST_JSON_COMPONENT3_NAME_VALUE3, TEST_JSON_TWIN_VER_1);
+
+static unsigned const char TEST_JSON_TWO_REPORTED_PROPERTIES_TWO_COMPONENTS_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT4_NAME_VALUE4 "," TEST_JSON_COMPONENT5_NAME_VALUE5, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_THREE_REPORTED_PROPERTIES_THREE_COMPONENTS_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT4_NAME_VALUE4 "," TEST_JSON_COMPONENT5_NAME_VALUE5 "," TEST_JSON_COMPONENT6_NAME_VALUE6, TEST_JSON_TWIN_VER_1);
+
+#define TEST_JSON_ALL_REPORTED TEST_JSON_COMPONENT4_NAME_VALUE4 "," TEST_JSON_COMPONENT5_NAME_VALUE5 "," TEST_JSON_COMPONENT6_NAME_VALUE6
+#define TEST_JSON_ALL_WRITABLE TEST_JSON_COMPONENT1_NAME_VALUE1 "," TEST_JSON_COMPONENT2_NAME_VALUE2 "," TEST_JSON_COMPONENT3_NAME_VALUE3
+
+static unsigned const char TEST_JSON_THREE_WRITABLE_REPORTED_IN_SEPARATE_COMPONENTS[] = TEST_BUILD_REPORTED_AND_DESIRED(TEST_JSON_ALL_REPORTED, TEST_JSON_ALL_WRITABLE, TEST_JSON_TWIN_VER_1);
 
 
 static unsigned const char TEST_INVALID_JSON[] = "}{-not-valid";
@@ -1520,7 +1549,6 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_two_reported_a
     TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_TWO_REPORTED_PROPERTIES_COMPONENT_ALL, TEST_COMPONENT_LIST4, 1, expectedPropList, 2);
 }
 
-//
 TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_reported_all_component)
 {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty4, expectedProperty5, expectedProperty6  };
@@ -1530,10 +1558,58 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_reported
     TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_THREE_REPORTED_PROPERTIES_COMPONENT_ALL, TEST_COMPONENT_LIST4, 1, expectedPropList, 3);
 }
 
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_two_components_writable_all)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1, expectedProperty2 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_2;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_TWO_UDPATE_PROPERTIES_TWO_COMPONENTS_ALL, TEST_COMPONENT_LIST1_2, 2, expectedPropList, 2);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_components_writable_all)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1, expectedProperty2, expectedProperty3 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_2;
+    expectedPropList[2].componentName = TEST_COMPONENT_NAME_3;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_TWO_UDPATE_PROPERTIES_THREE_COMPONENTS_ALL, TEST_COMPONENT_LIST1_2_3, 3, expectedPropList, 3);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_two_components_reported)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty4, expectedProperty5 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_4;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_5;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_TWO_REPORTED_PROPERTIES_TWO_COMPONENTS_ALL, TEST_COMPONENT_LIST4_5, 2, expectedPropList, 2);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_components_reported)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty4, expectedProperty5, expectedProperty6 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_4;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_5;
+    expectedPropList[2].componentName = TEST_COMPONENT_NAME_6;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_THREE_REPORTED_PROPERTIES_THREE_COMPONENTS_ALL, TEST_COMPONENT_LIST4_5_6, 3, expectedPropList, 3);
+}
+
+// TEST_JSON_THREE_WRITABLE_REPORTED_IN_SEPARATE_COMPONENTS
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_writable_and_reported_properties)
+{
+    printf("Json=<%s>\n", TEST_JSON_THREE_WRITABLE_REPORTED_IN_SEPARATE_COMPONENTS);
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1, expectedProperty2, expectedProperty3, expectedProperty4, expectedProperty5, expectedProperty6 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_2;
+    expectedPropList[2].componentName = TEST_COMPONENT_NAME_3;
+    expectedPropList[3].componentName = TEST_COMPONENT_NAME_4;
+    expectedPropList[4].componentName = TEST_COMPONENT_NAME_5;
+    expectedPropList[5].componentName = TEST_COMPONENT_NAME_6;
+
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_THREE_WRITABLE_REPORTED_IN_SEPARATE_COMPONENTS, TEST_COMPONENT_LIST1_6, 6, expectedPropList, 6);
+}
+
 
 
 // Next round of tests.
-// And then... inside a component, writable.  Basically 1/2/3 in single component.  And then 3 in separate components.  And then reported combos.
 // Finally the "ultimate" test- which failure test should be based - 3 reported/3 desired props, each in separate component.
 //  For _fail() run, just show let call recorder run and see what it says and make sure reasonable and use that instead of a manual re-derive.
 
