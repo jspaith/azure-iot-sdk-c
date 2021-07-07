@@ -356,13 +356,23 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_three_properties_success
 #define TEST_COMPONENT_NAME_1 "testComponent1"
 #define TEST_COMPONENT_NAME_2 "testComponent2"
 #define TEST_COMPONENT_NAME_3 "testComponent3"
+#define TEST_COMPONENT_NAME_4 "testComponent4"
+#define TEST_COMPONENT_NAME_5 "testComponent5"
+#define TEST_COMPONENT_NAME_6 "testComponent6"
+
+static const char* TEST_COMPONENT_LIST1[] = { TEST_COMPONENT_NAME_1 };
+static const char* TEST_COMPONENT_LIST1_2[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2  };
+static const char* TEST_COMPONENT_LIST1_2_3[] = { TEST_COMPONENT_NAME_1, TEST_COMPONENT_NAME_2, TEST_COMPONENT_NAME_3  };
+static const char* TEST_COMPONENT_LIST4[] = { TEST_COMPONENT_NAME_4 };
+
+
 
 // TODO: These #define string builders need more commentary.
 #define TEST_COMPONENT_MARKER(componentName) "{\""componentName"\":{\"__t\":\"c\""
 #define TEST_COMPONENT_JSON(componentName, expectedProperties) TEST_COMPONENT_MARKER(componentName) "," expectedProperties "}}"
 
 #define TEST_COMPONENT_MARKER_NO_BRACE(componentName) "\""componentName"\":{\"__t\":\"c\""
-#define TEST_COMPONENT_JSON_NO_BRACE(componentName, expectedProperties) TEST_COMPONENT_MARKER(componentName) "," expectedProperties "}"
+#define TEST_COMPONENT_JSON_NO_BRACE(componentName, expectedProperties) TEST_COMPONENT_MARKER_NO_BRACE(componentName) "," expectedProperties "}"
 
 
 static const char testReportedPropertyComponentJSON[] = TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_1, testReportedPropertyNoComponentJSONNoBrace);
@@ -901,41 +911,41 @@ static void set_expected_calls_for_IoTHubClient_Deserialize_Properties_CreateIte
 static unsigned const char TEST_JSON_ONE_PROPERTY_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
 static const size_t TEST_JSON_ONE_PROPERTY_ALL_LEN = sizeof(TEST_JSON_ONE_PROPERTY_ALL) - 1;
 static unsigned const char TEST_JSON_ONE_PROPERTY_WRITABLE[] = TEST_BUILD_DESIRED_UPDATE(TEST_JSON_NAME_VALUE1, TEST_JSON_TWIN_VER_2);
-static const size_t TEST_JSON_ONE_PROPERTY_WRITABLE_LEN = sizeof(TEST_JSON_ONE_PROPERTY_WRITABLE) - 1;
 
 // TODO: Remove most of _LEN if they're indeed not needed.  I don't think they are.
 static unsigned const char TEST_JSON_TWO_PROPERTIES_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_NAME_VALUE1_2, TEST_JSON_TWIN_VER_1);
-//static const size_t TEST_JSON_TWO_PROPERTIES_ALL_LEN = sizeof(TEST_JSON_TWO_PROPERTIES_ALL) - 1;
 static unsigned const char TEST_JSON_TWO_PROPERTIES_WRITABLE[] = TEST_BUILD_DESIRED_UPDATE(TEST_JSON_NAME_VALUE1_2, TEST_JSON_TWIN_VER_2);
-static const size_t TEST_JSON_TWO_PROPERTIES_WRITABLE_LEN = sizeof(TEST_JSON_TWO_PROPERTIES_WRITABLE) - 1;
 
 static unsigned const char TEST_JSON_THREE_PROPERTIES_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_NAME_VALUE1_2_3, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_THREE_PROPERTIES_ALL_LEN = sizeof(TEST_JSON_THREE_PROPERTIES_ALL) - 1;
 static unsigned const char TEST_JSON_THREE_PROPERTIES_WRITABLE[] = TEST_BUILD_DESIRED_UPDATE(TEST_JSON_NAME_VALUE1_2_3, TEST_JSON_TWIN_VER_2);
-static const size_t TEST_JSON_THREE_PROPERTIES_WRITABLE_LEN = sizeof(TEST_JSON_THREE_PROPERTIES_WRITABLE) - 1;
 
 static unsigned const char TEST_JSON_ONE_REPORTED_PROPERTY_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_NAME_VALUE4, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_ONE_REPORTED_PROPERTY_ALL_LEN = sizeof(TEST_JSON_ONE_REPORTED_PROPERTY_ALL) - 1;
 
 static unsigned const char TEST_JSON_TWO_REPORTED_PROPERTIES_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_NAME_VALUE4_5, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_TWO_REPORTED_PROPERTIES_ALL_LEN = sizeof(TEST_JSON_TWO_REPORTED_PROPERTIES_ALL) - 1;
 
 static unsigned const char TEST_JSON_THREE_REPORTED_PROPERTIES_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_NAME_VALUE4_5_6, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_THREE_REPORTED_PROPERTIES_ALL_LEN = sizeof(TEST_JSON_THREE_REPORTED_PROPERTIES_ALL) - 1;
 
 static unsigned const char TEST_JSON_ONE_REPORTED_UPDATE_PROPERTY_ALL[] = TEST_BUILD_REPORTED_AND_DESIRED(TEST_JSON_NAME_VALUE4, TEST_JSON_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_ONE_REPORTED_UPDATE_PROPERTY_ALL_LEN = sizeof(TEST_JSON_ONE_REPORTED_UPDATE_PROPERTY_ALL) - 1;
 
 static unsigned const char TEST_JSON_TWO_REPORTED_UPDATE_PROPERTIES_ALL[] =TEST_BUILD_REPORTED_AND_DESIRED(TEST_JSON_NAME_VALUE4_5, TEST_JSON_NAME_VALUE1_2, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_TWO_REPORTED_UPDATE_PROPERTIES_ALL_LEN = sizeof(TEST_JSON_TWO_REPORTED_UPDATE_PROPERTIES_ALL) - 1;
 
 static unsigned const char TEST_JSON_THREE_REPORTED_UPDATE_PROPERTIES_ALL[] = TEST_BUILD_REPORTED_AND_DESIRED(TEST_JSON_NAME_VALUE4_5_6, TEST_JSON_NAME_VALUE1_2_3, TEST_JSON_TWIN_VER_1);
-static const size_t TEST_JSON_THREE_REPORTED_UPDATE_PROPERTIES_ALL_LEN = sizeof(TEST_JSON_THREE_REPORTED_UPDATE_PROPERTIES_ALL) - 1;
-
 
 #define TEST_JSON_COMPONENT1_NAME_VALUE1 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_1, TEST_JSON_NAME_VALUE1)
+#define TEST_JSON_COMPONENT1_NAME_VALUE1_2 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_1, TEST_JSON_NAME_VALUE1_2)
+#define TEST_JSON_COMPONENT1_NAME_VALUE1_2_3  TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_1, TEST_JSON_NAME_VALUE1_2_3)
+#define TEST_JSON_COMPONENT1_NAME_VALUE4 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4)
+#define TEST_JSON_COMPONENT1_NAME_VALUE4_5 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4_5)
+#define TEST_JSON_COMPONENT1_NAME_VALUE4_5_6 TEST_COMPONENT_JSON_NO_BRACE(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4_5_6)
     
 static unsigned const char TEST_JSON_ONE_PROPERTY_COMPONENT_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_ONE_PROPERTY_COMPONENT_WRITABLE[] = TEST_BUILD_DESIRED_UPDATE(TEST_JSON_COMPONENT1_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_TWO_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1_2, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_THREE_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_COMPONENT1_NAME_VALUE1_2_3, TEST_JSON_TWIN_VER_1);
+
+static unsigned const char TEST_JSON_ONE_REPORTED_PROPERTY_COMPONENT_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT1_NAME_VALUE4, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_TWO_REPORTED_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT1_NAME_VALUE4_5, TEST_JSON_TWIN_VER_1);
+static unsigned const char TEST_JSON_THREE_REPORTED_PROPERTIES_COMPONENT_ALL[] = TEST_BUILD_REPORTED(TEST_JSON_COMPONENT1_NAME_VALUE4_5_6, TEST_JSON_TWIN_VER_1);
 
 
 static unsigned const char TEST_INVALID_JSON[] = "}{-not-valid";
@@ -1464,11 +1474,60 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_reported
     TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_THREE_REPORTED_UPDATE_PROPERTIES_ALL, NULL, 0, expectedPropList, 6);
 }
 
-TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_one_writable_component)
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_one_writable_all_component)
 {
-    printf("Json=<%s>\n", TEST_JSON_ONE_PROPERTY_COMPONENT_ALL);
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1 };
-    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_COMPONENT_ALL, NULL, 0, expectedPropList, 6);
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_COMPONENT_ALL, TEST_COMPONENT_LIST1, 1, expectedPropList, 1);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_one_writable_update_component)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_WRITABLE_UPDATES, TEST_JSON_ONE_PROPERTY_COMPONENT_WRITABLE, TEST_COMPONENT_LIST1, 1, expectedPropList, 1);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_two_writable_all_component)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1, expectedProperty2  };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_1;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_TWO_PROPERTIES_COMPONENT_ALL, TEST_COMPONENT_LIST1_2, 2, expectedPropList, 2);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_writable_all_component)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty1, expectedProperty2, expectedProperty3  };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_1;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_1;
+    expectedPropList[2].componentName = TEST_COMPONENT_NAME_1;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_THREE_PROPERTIES_COMPONENT_ALL, TEST_COMPONENT_LIST1_2_3, 3, expectedPropList, 3);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_one_reported_all_component)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty4 };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_4;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_REPORTED_PROPERTY_COMPONENT_ALL, TEST_COMPONENT_LIST4, 1, expectedPropList, 1);
+}
+
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_two_reported_all_component)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty4, expectedProperty5  };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_4;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_4;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_TWO_REPORTED_PROPERTIES_COMPONENT_ALL, TEST_COMPONENT_LIST4, 1, expectedPropList, 2);
+}
+
+//
+TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_three_reported_all_component)
+{
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY expectedPropList[] = { expectedProperty4, expectedProperty5, expectedProperty6  };
+    expectedPropList[0].componentName = TEST_COMPONENT_NAME_4;
+    expectedPropList[1].componentName = TEST_COMPONENT_NAME_4;
+    expectedPropList[2].componentName = TEST_COMPONENT_NAME_4;
+    TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_THREE_REPORTED_PROPERTIES_COMPONENT_ALL, TEST_COMPONENT_LIST4, 1, expectedPropList, 3);
 }
 
 
