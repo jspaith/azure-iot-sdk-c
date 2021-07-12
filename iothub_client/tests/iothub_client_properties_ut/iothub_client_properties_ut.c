@@ -42,10 +42,6 @@ static void my_gballoc_free(void* ptr)
 #include "umock_c/umocktypes_stdint.h"
 
 #define ENABLE_MOCKS
-// iothub_client_core_common.h is required under ENABLE_MOCKS so that TEST_DEFINE_ENUM_TYPE
-// can be successfully resolved for IOTHUB_CLIENT_RESULT below.
-//#include "iothub_client_core_common.h"
-
 #include "azure_c_shared_utility/crt_abstractions.h"
 #include "azure_c_shared_utility/gballoc.h"
 #include "parson.h"
@@ -82,12 +78,6 @@ static void on_umock_c_error(UMOCK_C_ERROR_CODE error_code)
 
 TEST_DEFINE_ENUM_TYPE(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_RESULT_VALUES);
 IMPLEMENT_UMOCK_C_ENUM_TYPE(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_RESULT_VALUES);
-
-//
-// The tests make extensive use of macros to build up test JSON, both the expected results 
-// of serialization APIs such as IoTHubClient_Serialize_ReportedProperties and the test
-// data for IoTHubClient_Deserialize_Properties_CreateIterator.
-//
 
 // Status code / ack code / descriptions for when serializing properties
 #define TEST_STATUS_CODE_1 200
@@ -127,6 +117,12 @@ IMPLEMENT_UMOCK_C_ENUM_TYPE(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_RESULT_VALUES);
 
 static const int TEST_DEFAULT_PROPERTIES_VERSION = 119;
 
+//
+// The tests make extensive use of macros to build up test JSON, both the expected results 
+// of serialization APIs such as IoTHubClient_Serialize_ReportedProperties and the test
+// data for IoTHubClient_Deserialize_Properties_CreateIterator.
+//
+
 // BUILD_JSON_NAME_VALUE creates a JSON stylpe "name": value with required C escaping of all this.
 #define BUILD_JSON_NAME_VALUE(n, v) "\""n"\":"v""
 
@@ -148,15 +144,16 @@ static const int TEST_DEFAULT_PROPERTIES_VERSION = 119;
 #define TEST_BUILD_REPORTED(reportedNameValuePairs, twinVersion) "{ \"reported\": {" reportedNameValuePairs "},  \"desired\": { " twinVersion "} }"
 #define TEST_BUILD_REPORTED_AND_DESIRED(reportedNameValuePairs, desiredNameValuePairs, twinVersion) "{ \"reported\": {" reportedNameValuePairs "},  \"desired\": { " desiredNameValuePairs "," twinVersion "} }"
 
-// Test reported properties to serialize during calls to IoTHubClient_Serialize_ReportedProperties.
+// Test reported properties to serialize during calls to IoTHubClient_Serialize_ReportedProperties (valid structures).
 static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP1 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME1, TEST_PROP_VALUE1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP2 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME2, TEST_PROP_VALUE2 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP3 = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME3, TEST_PROP_VALUE3 };
+// Test reported properties to serialize (invalid structures, IoTHubClient_Serialize_ReportedProperties should fail when passed these).
 static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP_WRONG_VERSION = { 2, TEST_PROP_NAME1, TEST_PROP_VALUE1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP_NULL_NAME = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, NULL, TEST_PROP_VALUE1 };
 static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP_NULL_VALUE = { IOTHUB_CLIENT_REPORTED_PROPERTY_STRUCT_VERSION_1, TEST_PROP_NAME1, NULL };
 
-// Data expected to be serialized as result of IoTHubClient_Serialize_ReportedProperties tests.
+// JSON expected to be serialized during IoTHubClient_Serialize_ReportedProperties tests.
 #define TEST_REPORTED_PROP1_JSON_NO_BRACE BUILD_JSON_NAME_VALUE(TEST_PROP_NAME1, TEST_PROP_VALUE1)
 #define TEST_REPORTED_PROP_JSON1 "{" TEST_REPORTED_PROP1_JSON_NO_BRACE "}"
 #define TEST_REPORTED_PROP1_2_JSON_NO_BRACE BUILD_JSON_NAME_VALUE(TEST_PROP_NAME1, TEST_PROP_VALUE1) "," BUILD_JSON_NAME_VALUE(TEST_PROP_NAME2, TEST_PROP_VALUE2)
@@ -167,15 +164,16 @@ static const IOTHUB_CLIENT_REPORTED_PROPERTY TEST_REPORTED_PROP_NULL_VALUE = { I
 #define TEST_REPORTED_PROP1_2_JSON_COMPONENT1 TEST_COMPONENT_JSON_WITH_BRACE(TEST_COMPONENT_NAME_1, TEST_REPORTED_PROP1_2_JSON_NO_BRACE)
 #define TEST_REPORTED_PROP1_2_3_JSON_COMPONENT1 TEST_COMPONENT_JSON_WITH_BRACE(TEST_COMPONENT_NAME_1, TEST_REPORTED_PROP1_2_3_JSON_NO_BRACE)
 
-// Test reported properties to serialize
-static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_WRONG_VERSION = { 2, TEST_PROP_NAME1, TEST_PROP_VALUE1, TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL};
+// Test reported properties to serialize durin calls to IoTHubClient_Serialize_WritablePropertyResponse (valid structures).
 static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_PROP1 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME1, TEST_PROP_VALUE1, TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL };
 static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_PROP2 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME2, TEST_PROP_VALUE2, TEST_STATUS_CODE_2, TEST_ACK_CODE_2, TEST_DESCRIPTION_2 };
 static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_PROP3 = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME3, TEST_PROP_VALUE3, TEST_STATUS_CODE_3, TEST_ACK_CODE_3, TEST_DESCRIPTION_3 };
+// Test reported properties to serialize (invalid structures, IoTHubClient_Serialize_WritablePropertyResponse should fail when passed these).
+static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_WRONG_VERSION = { 2, TEST_PROP_NAME1, TEST_PROP_VALUE1, TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL};
 static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_PROP_NULL_NAME =  { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, NULL, TEST_PROP_VALUE1, TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL };
 static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_PROP_NULL_VALUE = { IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1, TEST_PROP_NAME1, NULL, TEST_STATUS_CODE_1, TEST_ACK_CODE_1, NULL };
 
-// Helpers to build expected results of serializing writable response.
+// Helpers to build expected JSON when calling IoTHubClient_Serialize_WritablePropertyResponse.
 #define BUILD_EXPECTED_WRITABLE_JSON(name, val, code, version) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version "}"
 #define BUILD_EXPECTED_WRITABLE_JSON_DESCRIPTION(name, val, code, version, description) "\""name"\":{\"value\":"val",\"ac\":" #code ",\"av\":" #version ",\"ad\":\"" description "\"}"
 
@@ -189,16 +187,15 @@ static const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE TEST_WRITABLE_PROP_NULL_VA
 #define TEST_WRITABLE_PROP1_2_JSON "{" TEST_WRITABLE_PROP1_2_JSON_NO_BRACE "}"
 #define TEST_WRITABLE_PROP1_2_3_JSON_NO_BRACE TEST_WRITABLE_PROP1_JSON_NO_BRACE "," TEST_WRITABLE_PROP2_JSON_NO_BRACE "," TEST_WRITABLE_PROP3_JSON_NO_BRACE
 #define TEST_WRITABLE_PROP1_2_3_JSON "{" TEST_WRITABLE_PROP1_2_3_JSON_NO_BRACE "}"
-
 #define TEST_WRITABLE_PROP1_COMPONENT1_JSON TEST_COMPONENT_JSON_WITH_BRACE(TEST_COMPONENT_NAME_1, TEST_WRITABLE_PROP1_JSON_NO_BRACE)
 #define TEST_WRITABLE_PROP2_COMPONENT1_JSON TEST_COMPONENT_JSON_WITH_BRACE(TEST_COMPONENT_NAME_1, TEST_WRITABLE_PROP2_JSON_NO_BRACE)
 #define TEST_WRITABLE_PROP1_2_COMPONENT1_JSON TEST_COMPONENT_JSON_WITH_BRACE(TEST_COMPONENT_NAME_1, TEST_WRITABLE_PROP1_2_JSON_NO_BRACE)
 #define TEST_WRITABLE_PROP1_2_3_COMPONENT1_JSON TEST_COMPONENT_JSON_WITH_BRACE(TEST_COMPONENT_NAME_1, TEST_WRITABLE_PROP1_2_3_JSON_NO_BRACE)
 
-// Expected results for permutations of the various during deserialization.  Note that the componentName is alway
-// NULL in the test data below.  Tests that actually expect a component to be set will make a copy
-// of this structure and then specify the required IOTHUB_CLIENT_DESERIALIZED_PROPERTY::componentName.
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY1 = {
+// Expected results deserialization tests.  The componentName is alway NULL in the test data below.  Tests that 
+// expect a component to be set will make a copy of the needed structure(s) and then set 
+// IOTHUB_CLIENT_DESERIALIZED_PROPERTY::componentName in sthe copied version.
+static const IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY1 = {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
     IOTHUB_CLIENT_PROPERTY_TYPE_WRITABLE,
     NULL,
@@ -208,7 +205,7 @@ static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY1 = {
     (sizeof(TEST_PROP_VALUE1) / sizeof(TEST_PROP_VALUE1[0]) - 1)
 };
 
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY2 = {
+static const IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY2 = {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
     IOTHUB_CLIENT_PROPERTY_TYPE_WRITABLE,
     NULL,
@@ -218,7 +215,7 @@ static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY2 = {
     (sizeof(TEST_PROP_VALUE2) / sizeof(TEST_PROP_VALUE2[0]) - 1)
 };
 
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY3 = {
+static const IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY3 = {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
     IOTHUB_CLIENT_PROPERTY_TYPE_WRITABLE,
     NULL,
@@ -228,7 +225,7 @@ static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY3 = {
     (sizeof(TEST_PROP_VALUE3) / sizeof(TEST_PROP_VALUE3[0]) - 1)
 };
 
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY4 = {
+static const IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY4 = {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
     IOTHUB_CLIENT_PROPERTY_TYPE_REPORTED_FROM_DEVICE,
     NULL,
@@ -238,7 +235,7 @@ static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY4 = {
     (sizeof(TEST_PROP_VALUE4) / sizeof(TEST_PROP_VALUE4[0]) - 1)
 };
 
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY5 = {
+static const IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY5 = {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
     IOTHUB_CLIENT_PROPERTY_TYPE_REPORTED_FROM_DEVICE,
     NULL,
@@ -248,7 +245,7 @@ static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY5 = {
     (sizeof(TEST_PROP_VALUE5) / sizeof(TEST_PROP_VALUE5[0]) - 1)
 };
 
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY6 = {
+static const IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY6 = {
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
     IOTHUB_CLIENT_PROPERTY_TYPE_REPORTED_FROM_DEVICE,
     NULL,
@@ -256,6 +253,18 @@ static IOTHUB_CLIENT_DESERIALIZED_PROPERTY TEST_EXPECTED_PROPERTY6 = {
     IOTHUB_CLIENT_PROPERTY_VALUE_STRING,
     { .str = TEST_PROP_VALUE6 },
     (sizeof(TEST_PROP_VALUE6) / sizeof(TEST_PROP_VALUE6[0]) - 1)
+};
+
+// For error cases, make sure IoTHubClient_Deserialize_Properties_GetNextProperty does not change any members
+// of the passed in structure
+static IOTHUB_CLIENT_DESERIALIZED_PROPERTY unfilledProperty = {
+    IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
+    0,
+    NULL,
+    NULL,
+    0,
+    { .str = NULL },
+    0
 };
 
 // Lists of the components in a given model during tests.
@@ -303,7 +312,7 @@ static const size_t TEST_COMPONENT_LIST1_2_3_LEN = sizeof(TEST_COMPONENT_LIST1_2
 #define TEST_JSON_COMPONENT1_NAME_VALUE4_5 TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4_5)
 #define TEST_JSON_COMPONENT1_NAME_VALUE4_5_6 TEST_COMPONENT_JSON(TEST_COMPONENT_NAME_4, TEST_JSON_NAME_VALUE4_5_6)
 
-// Build up the actual JSON for the tests themselves.
+// Build up the actual JSON for IoTHubClient_Deserialize_Properties_CreateIterator/IoTHubClient_Deserialize_Properties_GetNextProperty tests.
 static unsigned const char TEST_JSON_ONE_PROPERTY_ALL[] = TEST_BUILD_DESIRED_ALL(TEST_JSON_NAME_VALUE1, TEST_JSON_TWIN_VER_1);
 static const size_t TEST_JSON_ONE_PROPERTY_ALL_LEN = sizeof(TEST_JSON_ONE_PROPERTY_ALL) - 1;
 static unsigned const char TEST_JSON_ONE_PROPERTY_WRITABLE[] = TEST_BUILD_DESIRED_UPDATE(TEST_JSON_NAME_VALUE1, TEST_JSON_TWIN_VER_2);
@@ -336,17 +345,16 @@ static unsigned const char TEST_JSON_THREE_REPORTED_PROPERTIES_THREE_COMPONENTS_
 #define TEST_JSON_ALL_REPORTED TEST_JSON_COMPONENT4_NAME_VALUE4 "," TEST_JSON_COMPONENT5_NAME_VALUE5 "," TEST_JSON_COMPONENT6_NAME_VALUE6
 #define TEST_JSON_ALL_WRITABLE TEST_JSON_COMPONENT1_NAME_VALUE1 "," TEST_JSON_COMPONENT2_NAME_VALUE2 "," TEST_JSON_COMPONENT3_NAME_VALUE3
 
-// This tests most complicated scenario; 3 reported properties, 3 writable, each in a separate component.
+// This tests 3 reported properties, 3 writable, each in a separate component.
 static unsigned const char TEST_JSON_THREE_WRITABLE_REPORTED_IN_SEPARATE_COMPONENTS[] = TEST_BUILD_REPORTED_AND_DESIRED(TEST_JSON_ALL_REPORTED, TEST_JSON_ALL_WRITABLE, TEST_JSON_TWIN_VER_1);
 
-// Completely invalid JSON.
+// Invalid JSON.  IoTHubClient_Deserialize_Properties_CreateIterator will fail trying to deserialize this.
 static unsigned const char TEST_INVALID_JSON[] = "}{-not-valid";
-
-// Legal JSON including $version, but for an ALL json its missing the desired.  Creating iterator will be OK with this won't have anything to enumerate
-static unsigned const char TEST_JSON_NO_DESIRED[] = "{ " TEST_JSON_TWIN_VER_1 " }";
-static const size_t TEST_JSON_NO_DESIRED_LEN = sizeof(TEST_JSON_NO_DESIRED) - 1;
-// Legal JSON but no $Version.  Creating iterator won't allow this.
+// Legal JSON but no $Version.  IoTHubClient_Deserialize_Properties_CreateIterator will fail trying to deserialize this.
 static unsigned const char TEST_JSON_NO_VERSION[] = "44";
+// Legal JSON including $version, but for an ALL json its missing the desired.  IoTHubClient_Deserialize_Properties_CreateIterator will succeed but IoTHubClient_Deserialize_Properties_GetNextProperty 
+// won't have anything to enumerate.
+static unsigned const char TEST_JSON_NO_DESIRED[] = "{ " TEST_JSON_TWIN_VER_1 " }";
 
 BEGIN_TEST_SUITE(iothub_client_properties_ut)
 
@@ -370,37 +378,27 @@ TEST_SUITE_INITIALIZE(suite_init)
     REGISTER_GLOBAL_MOCK_HOOK(gballoc_free, my_gballoc_free);
     REGISTER_GLOBAL_MOCK_HOOK(gballoc_calloc, my_gballoc_calloc);
     REGISTER_GLOBAL_MOCK_FAIL_RETURN(gballoc_realloc, NULL);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_parse_string, real_json_parse_string);
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_parse_string, NULL);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_parse_string, real_json_parse_string);
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_parse_string, NULL);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_serialize_to_string, real_json_serialize_to_string);
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_serialize_to_string, NULL);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_free_serialized_string, real_json_free_serialized_string);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_value_get_object, real_json_value_get_object );
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_value_get_object, NULL);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_value, real_json_object_get_value );
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_object_get_value, NULL);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_value_free, real_json_value_free);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_value_get_type, real_json_value_get_type);
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_value_get_type, JSONError);
-
-    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_object, real_json_object_get_object);
-    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_object_get_object, NULL);
-
     REGISTER_GLOBAL_MOCK_HOOK(mallocAndStrcpy_s, real_mallocAndStrcpy_s);
     REGISTER_GLOBAL_MOCK_FAIL_RETURN(mallocAndStrcpy_s, MU_FAILURE);
 
-    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_count, real_json_object_get_count);
 
+    REGISTER_GLOBAL_MOCK_HOOK(json_parse_string, real_json_parse_string);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_parse_string, NULL);
+    REGISTER_GLOBAL_MOCK_HOOK(json_parse_string, real_json_parse_string);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_parse_string, NULL);
+    REGISTER_GLOBAL_MOCK_HOOK(json_serialize_to_string, real_json_serialize_to_string);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_serialize_to_string, NULL);
+    REGISTER_GLOBAL_MOCK_HOOK(json_free_serialized_string, real_json_free_serialized_string);
+    REGISTER_GLOBAL_MOCK_HOOK(json_value_get_object, real_json_value_get_object );
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_value_get_object, NULL);
+    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_value, real_json_object_get_value );
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_object_get_value, NULL);
+    REGISTER_GLOBAL_MOCK_HOOK(json_value_free, real_json_value_free);
+    REGISTER_GLOBAL_MOCK_HOOK(json_value_get_type, real_json_value_get_type);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_value_get_type, JSONError);
+    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_object, real_json_object_get_object);
+    REGISTER_GLOBAL_MOCK_FAIL_RETURN(json_object_get_object, NULL);
+    REGISTER_GLOBAL_MOCK_HOOK(json_object_get_count, real_json_object_get_count);
     REGISTER_GLOBAL_MOCK_HOOK(json_object_get_name, real_json_object_get_name);
     REGISTER_GLOBAL_MOCK_HOOK(json_object_get_value_at, real_json_object_get_value_at);
 
@@ -420,6 +418,11 @@ TEST_FUNCTION_CLEANUP(TestMethodCleanup)
 //
 // IoTHubClient_Serialize_ReportedProperties tests
 //
+static void set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties(void)
+{
+    STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
+}
+
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_properties)
 {
     // arrange
@@ -515,11 +518,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_NULL_propvalue)
     ASSERT_IS_NULL(serializedProperties);
     ASSERT_ARE_EQUAL(int, 0, serializedPropertiesLength);
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
-}
-
-static void set_expected_calls_for_IoTHubClient_Serialize_ReportedProperties(void)
-{
-    STRICT_EXPECTED_CALL(gballoc_calloc(IGNORED_NUM_ARG, IGNORED_NUM_ARG));
 }
 
 TEST_FUNCTION(IoTHubClient_Serialize_ReportedProperties_one_property_success)
@@ -794,7 +792,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_WritablePropertyResponse_NULL_propvalue)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-
 TEST_FUNCTION(IoTHubClient_Serialize_WritableProperties_one_property_success)
 {
     // arrange
@@ -1032,7 +1029,6 @@ TEST_FUNCTION(IoTHubClient_Serialize_Properties_Destroy_success)
     ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
 }
 
-
 TEST_FUNCTION(IoTHubClient_Serialize_Properties_Destroy_null)
 {
     // act
@@ -1146,19 +1142,6 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_all_success)
     // cleanup
     IoTHubClient_Deserialize_Properties_DestroyIterator(h);
 }
-
-// For error cases, make sure IoTHubClient_Deserialize_Properties_GetNextProperty does not change any members
-// of the passed in structure
-static IOTHUB_CLIENT_DESERIALIZED_PROPERTY unfilledProperty = {
-    IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1,
-    0,
-    NULL,
-    NULL,
-    0,
-    { .str = NULL },
-    0
-};
-
 
 TEST_FUNCTION(IoTHubClient_Deserialize_Properties_CreateIterator_all_with_components_success)
 {
@@ -1333,6 +1316,43 @@ static void CompareProperties(const IOTHUB_CLIENT_DESERIALIZED_PROPERTY* expecte
     ASSERT_ARE_EQUAL(int, expectedProperty->valueLength, actualProperty->valueLength);
 }
 
+static void TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, const unsigned char* payload, const char** componentsInModel, size_t numComponentsInModel,
+                                       const IOTHUB_CLIENT_DESERIALIZED_PROPERTY* expectedProperties, size_t numExpectedProperties)
+{
+    // arrange
+    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = TestAllocatePropertyIterator(payloadType, payload, componentsInModel, numComponentsInModel);
+    size_t numPropertiesVisited = 0;
+
+    // act|assert
+
+    while (true)
+    {
+        IOTHUB_CLIENT_DESERIALIZED_PROPERTY property;
+        bool propertySpecified;
+        ResetTestProperty(&property);
+
+        IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_GetNextProperty(h, &property, &propertySpecified);
+        ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
+
+        if (numPropertiesVisited == numExpectedProperties)
+        {
+            // This is our last time enumerating number of properties we expect.  We should still
+            // get success from caller but propertySpecified better be set FALSE so caller knows to stop.
+            ASSERT_IS_FALSE(propertySpecified);
+            break;
+        }
+        ASSERT_IS_TRUE(propertySpecified);
+
+        CompareProperties(expectedProperties + numPropertiesVisited, &property);
+
+        IoTHubClient_Deserialize_Properties_DestroyProperty(&property);
+        numPropertiesVisited++;
+    }
+
+    // cleanup
+    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
+}
+
 TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_NULL_handle)
 {
     // arrange
@@ -1390,54 +1410,20 @@ TEST_FUNCTION(IoTHubClient_Deserialize_Properties_GetNextProperty_wrong_struct_v
     IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = TestAllocatePropertyIterator(IOTHUB_CLIENT_PROPERTY_PAYLOAD_ALL, TEST_JSON_ONE_PROPERTY_ALL, NULL, 0);
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY wrongVersion;
     IOTHUB_CLIENT_DESERIALIZED_PROPERTY property;
+    bool propertySpecified = false;
 
     memset(&wrongVersion, 0, sizeof(wrongVersion));
-    wrongVersion.structVersion = IOTHUB_CLIENT_DESERIALIZED_PROPERTY_STRUCT_VERSION_1;
+    wrongVersion.structVersion = 22;
     memcpy(&property, &wrongVersion, sizeof(property));
 
     // act
-    IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_GetNextProperty(h, &property, NULL);
+    IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_GetNextProperty(h, &property, &propertySpecified);
 
     // assert
     ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_INVALID_ARG, result);
     // Make sure IoTHubClient_Deserialize_Properties_GetNextProperty didn't modify property in error case
     ASSERT_IS_TRUE(0 == memcmp(&wrongVersion, &property, sizeof(property)));
-
-    // cleanup
-    IoTHubClient_Deserialize_Properties_DestroyIterator(h);
-}
-
-static void TestDeserializedProperties(IOTHUB_CLIENT_PROPERTY_PAYLOAD_TYPE payloadType, const unsigned char* payload, const char** componentsInModel, size_t numComponentsInModel,
-                                       const IOTHUB_CLIENT_DESERIALIZED_PROPERTY* expectedProperties, size_t numExpectedProperties)
-{
-    // arrange
-    IOTHUB_CLIENT_PROPERTY_ITERATOR_HANDLE h = TestAllocatePropertyIterator(payloadType, payload, componentsInModel, numComponentsInModel);
-    size_t numPropertiesVisited = 0;
-
-    // act|assert
-
-    while (true)
-    {
-        IOTHUB_CLIENT_DESERIALIZED_PROPERTY property;
-        bool propertySpecified;
-        ResetTestProperty(&property);
-
-        IOTHUB_CLIENT_RESULT result = IoTHubClient_Deserialize_Properties_GetNextProperty(h, &property, &propertySpecified);
-        ASSERT_ARE_EQUAL(IOTHUB_CLIENT_RESULT, IOTHUB_CLIENT_OK, result);
-
-        if (numPropertiesVisited == numExpectedProperties)
-        {
-            // Last time through enumeration loop we should be donee.
-            ASSERT_IS_FALSE(propertySpecified);
-            break;
-        }
-        ASSERT_IS_TRUE(propertySpecified);
-
-        CompareProperties(expectedProperties + numPropertiesVisited, &property);
-
-        IoTHubClient_Deserialize_Properties_DestroyProperty(&property);
-        numPropertiesVisited++;
-    }
+    ASSERT_IS_FALSE(propertySpecified);
 
     // cleanup
     IoTHubClient_Deserialize_Properties_DestroyIterator(h);
