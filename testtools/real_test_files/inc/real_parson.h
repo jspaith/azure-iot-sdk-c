@@ -27,6 +27,9 @@
 #define json_object_get_value               real_json_object_get_value
 #define json_value_get_type                 real_json_value_get_type
 #define json_object_get_object              real_json_object_get_object
+#define json_object_get_count               real_json_object_get_count
+#define json_object_get_name                real_json_object_get_name
+#define json_object_get_value_at            real_json_object_get_value_at
 
 #include "parson.h"
 
@@ -53,6 +56,10 @@
 #undef json_object
 #undef json_object_get_value
 #undef json_value_get_type
+#undef json_object_get_object
+#undef json_object_get_count
+#undef json_object_get_name
+#undef real_json_object_get_value_at
 
 #endif
 

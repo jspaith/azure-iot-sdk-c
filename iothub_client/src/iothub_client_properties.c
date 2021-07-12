@@ -230,7 +230,6 @@ static bool VerifyReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* prop
     return result;
 }
 
-
 IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIENT_REPORTED_PROPERTY* properties, size_t numProperties, const char* componentName, unsigned char** serializedProperties, size_t* serializedPropertiesLength)
 {
     IOTHUB_CLIENT_RESULT result;
@@ -278,6 +277,34 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_ReportedProperties(const IOTHUB_CLIE
     return result;
 }
 
+static bool VerifyWritableProperties(const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE* properties, size_t numProperties)
+{
+    bool result = false;
+
+    if ((properties == NULL) || (numProperties == 0))
+    {
+        LogError("Invalid properties");
+        result = false;
+    }
+    else
+    {
+        size_t i;
+        for (i = 0; i < numProperties; i++)
+        {
+            if ((properties[i].structVersion != IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1) || (properties[i].name == NULL) || (properties[i].value == NULL))
+            {
+                LogError("Property at index %lu ", (unsigned long)i);
+                break;
+            }
+        }
+
+        result = (i == numProperties);
+    }
+
+    return result;
+}
+
+
 IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
     const IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE* properties,
     size_t numProperties,
@@ -289,7 +316,7 @@ IOTHUB_CLIENT_RESULT IoTHubClient_Serialize_WritablePropertyResponse(
     size_t requiredBytes = 0;
     unsigned char* serializedPropertiesBuffer = NULL;
 
-    if ((properties == NULL) || (properties->structVersion != IOTHUB_CLIENT_WRITABLE_PROPERTY_RESPONSE_STRUCT_VERSION_1) || (numProperties == 0) || (serializedProperties == NULL) || (serializedPropertiesLength == NULL))
+    if (VerifyWritableProperties(properties,numProperties) == false || (serializedProperties == NULL) || (serializedPropertiesLength == NULL))
     {
         LogError("Invalid argument");
         result = IOTHUB_CLIENT_INVALID_ARG;
@@ -537,7 +564,7 @@ static bool ValidateIteratorInputs(
         {
             if (componentsInModel[i] == NULL)
             {
-                LogError("componentsInModel at index %lu is NULL", i);
+                LogError("componentsInModel at index %lu is NULL", (unsigned long)i);
                 break;
             }
         }
